@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic POS System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Retail POS</h1>
+    </header>
+
+    <main>
+        <section id="item-search-section">
+            <h2>Item Search</h2>
+            <input type="text" id="item-search-input" placeholder="Search by SKU or Title">
+            <button id="item-search-button">Search</button>
+            <button id="open-add-item-modal-button" style="margin-left: 10px; background-color: #007bff;">Add New Item</button>
+            <div id="item-search-results"></div>
+        </section>
+
+        <section id="cart-section">
+            <h2>Current Sale (Cart)</h2>
+            <div id="cart-items"></div>
+            <div id="cart-summary">
+                <p>Total: <span id="cart-total">0.00</span></p>
+                <p>Status: <span id="cart-sale-status">No Active Sale</span></p>
+            </div>
+            <div>
+                <div id="customer-details-cart">
+                    <!-- Selected customer details will appear here -->
+                </div>
+            </div>
+            <button id="park-sale-button">Park Sale</button>
+            <button id="finalize-sale-button">Finalize & Pay</button>
+            <button id="new-quote-button">New Quote</button>
+        </section>
+
+        <section id="customer-management-section">
+            <h2>Customer Management</h2>
+            <!-- Basic Customer CRUD UI here later -->
+            <input type="text" id="customer-mgmt-search-input" placeholder="Search Customers by Name or Phone">
+            <button id="customer-mgmt-add-new-button">Add New Customer</button>
+            <div id="customer-mgmt-list">
+                <!-- Customer list will be populated here -->
+            </div>
+        </section>
+        
+        <section id="parked-sales-section">
+            <h2>Parked Sales (Open)</h2>
+            <div id="parked-sales-list"></div>
+        </section>
+
+        <section id="all-sales-search-section">
+            <h2>Find Sales</h2>
+            <div>
+                <label for="search-sale-id">Sale ID:</label>
+                <input type="text" id="search-sale-id" placeholder="Enter Sale ID">
+            </div>
+            <div>
+                <label for="search-sale-customer">Customer (Name/Phone):</label>
+                <input type="text" id="search-sale-customer" placeholder="Enter Customer Name or Phone">
+            </div>
+            <div>
+                <label for="search-sale-status">Status:</label>
+                <select id="search-sale-status">
+                    <option value="">All Statuses</option>
+                    <option value="Open">Open</option>
+                    <option value="Quote">Quote</option>
+                    <option value="Invoice">Invoice</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Void">Void</option>
+                </select>
+            </div>
+            <button id="search-sales-button">Search Sales</button>
+            <div id="all-sales-search-results">
+                <!-- Sales search results will be populated here -->
+            </div>
+        </section>
+
+        <section id="quick-add-dashboard-section">
+            <h2>Quick Add Dashboard <button id="quick-add-edit-mode-btn" title="Toggle Edit Mode" style="font-size: 1em; padding: 2px 6px; vertical-align: middle;">&#9998;</button></h2>
+            
+            <div id="quick-add-controls" style="margin-bottom: 10px; display: none;">
+                <span id="quick-add-edit-actions" style="margin-left: 0px;">
+                    <button id="quick-add-new-item-btn">Add Item to Page</button>
+                    <button id="quick-add-new-page-link-btn">Add Page Link</button>
+                </span>
+            </div>
+            <div id="quick-add-page-info" style="display: none;">
+                <span>Page: <span id="quick-add-current-page">1</span></span>
+            </div>
+            <div id="quick-add-grid-container">
+                <!-- Quick add items will be populated here by JS -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-payment-modal">&times;</span>
+            <h2>Process Payment</h2>
+            <p>Sale ID: <span id="payment-modal-sale-id"></span></p>
+            <p>Amount Due: $<span id="payment-modal-amount-due">0.00</span></p>
+            <div>
+                <label for="payment-type-select">Payment Type:</label>
+                <select id="payment-type-select">
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="EFTPOS">EFTPOS</option>
+                </select>
+            </div>
+            <div>
+                <label for="payment-amount-input">Amount to Pay:</label>
+                <input type="number" id="payment-amount-input" step="0.01" min="0.01">
+            </div>
+            <button id="submit-payment-button">Submit Payment</button>
+            <button id="invoice-remaining-button" style="background-color: #f0ad4e; margin-left: 10px;">Invoice & Keep Open</button>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+
+    <!-- Add Customer Modal -->
+    <div id="add-customer-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-add-customer-modal">&times;</span>
+            <h2>Add New Customer</h2>
+            <div>
+                <label for="new-customer-name">Name:</label>
+                <input type="text" id="new-customer-name" required>
+            </div>
+            <div>
+                <label for="new-customer-phone">Phone:</label>
+                <input type="text" id="new-customer-phone" required>
+            </div>
+            <div>
+                <label for="new-customer-email">Email:</label>
+                <input type="text" id="new-customer-email">
+            </div>
+            <div>
+                <label for="new-customer-address">Address:</label>
+                <input type="text" id="new-customer-address">
+            </div>
+            <div>
+                <label for="new-customer-company">Company Name:</label>
+                <input type="text" id="new-customer-company">
+            </div>
+            <button id="submit-new-customer-button">Save Customer</button>
+        </div>
+    </div>
+
+    <!-- Edit Customer Modal -->
+    <div id="edit-customer-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-edit-customer-modal">&times;</span>
+            <h2>Edit Customer</h2>
+            <input type="hidden" id="edit-customer-id">
+            <div>
+                <label for="edit-customer-name">Name:</label>
+                <input type="text" id="edit-customer-name" required>
+            </div>
+            <div>
+                <label for="edit-customer-phone">Phone:</label>
+                <input type="text" id="edit-customer-phone" required>
+            </div>
+            <div>
+                <label for="edit-customer-email">Email:</label>
+                <input type="text" id="edit-customer-email">
+            </div>
+            <div>
+                <label for="edit-customer-address">Address:</label>
+                <input type="text" id="edit-customer-address">
+            </div>
+            <div>
+                <label for="edit-customer-company">Company Name:</label>
+                <input type="text" id="edit-customer-company">
+            </div>
+            <button id="submit-update-customer-button">Save Changes</button>
+        </div>
+    </div>
+
+    <!-- Variant Selection Modal -->
+    <div id="variant-selection-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-variant-selection-modal">&times;</span>
+            <h2 id="variant-modal-title">Select Variant for [Parent Item Name]</h2>
+            <div id="variant-list-container">
+                <!-- Variants will be listed here -->
+                <p>Loading variants...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="add-edit-item-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-add-edit-item-modal">&times;</span>
+            <h2 id="item-modal-title">Add New Item</h2>
+            <input type="hidden" id="edit-item-id">
+            <div>
+                <label for="item-title">Title:</label>
+                <input type="text" id="item-title" required>
+            </div>
+            <div>
+                <label for="item-sku">SKU:</label>
+                <input type="text" id="item-sku" required>
+            </div>
+            <div>
+                <label for="item-price">Price:</label>
+                <input type="number" id="item-price" step="0.01" min="0" required>
+            </div>
+            <div>
+                <label for="item-stock-quantity">Stock Quantity:</label>
+                <input type="number" id="item-stock-quantity" step="1" min="0">
+            </div>
+            <div>
+                <label for="item-description">Description:</label>
+                <textarea id="item-description" rows="3"></textarea>
+            </div>
+            <div>
+                <label for="item-parent-id">Parent ID (-1: Standalone, -2: Parent, or ID of parent):</label>
+                <input type="number" id="item-parent-id" step="1" value="-1"> 
+            </div>
+            <div>
+                <input type="checkbox" id="item-is-stock-tracked" checked>
+                <label for="item-is-stock-tracked">Track Stock?</label>
+            </div>
+            <div>
+                <input type="checkbox" id="item-show-on-website">
+                <label for="item-show-on-website">Show on Website?</label>
+            </div>
+            <div>
+                <input type="checkbox" id="item-is-active" checked>
+                <label for="item-is-active">Is Active?</label>
+            </div>
+
+            <div id="item-images-display-container" style="margin-top: 15px;">
+                <h3>Current Images</h3>
+                <div id="item-images-list" class="item-images-grid">
+                    <!-- Existing images will be populated here by JS -->
+                    <!-- Example of how an image might look (for styling purposes, will be dynamic):
+                    <div class="image-preview-container">
+                        <img src="placeholder_small.jpg" alt="Item Image" class="image-preview">
+                        <button class="delete-image-btn" data-photo-id="1">Delete</button>
+                        <span class="primary-image-indicator">Primary</span>
+                    </div>
+                    -->
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;" class="drop-zone-container"> 
+                <label for="item-images-upload">Upload New Images (PNG, JPG, GIF):</label>
+                <div id="item-image-drop-zone" class="drop-zone">
+                    <p>Drag & Drop files here or click to Browse</p>
+                    <input type="file" id="item-images-upload" name="images" multiple accept="image/png, image/jpeg, image/gif" style="display: none;">
+                </div>
+            </div>
+
+            <button id="submit-item-button" style="margin-top: 20px;">Save Item</button>
+            <button id="manage-variants-button" style="display: none; margin-top: 10px; background-color: #5bc0de;">Manage Variants</button>
+        </div>
+    </div>
+
+    <div id="toast-container"></div> <!-- Toast notifications will appear here -->
+
+    <!-- Quick Add - New Item Modal -->
+    <div id="quick-add-new-item-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-quick-add-new-item-modal">&times;</span>
+            <h2>Add Item to Quick Add Page</h2>
+            <div>
+                <label for="qai-item-search-input">Search for Item (SKU or Title):</label>
+                <input type="text" id="qai-item-search-input" placeholder="Enter SKU or Title">
+                <button id="qai-item-search-button">Search</button>
+            </div>
+            <div id="qai-item-search-results" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                <!-- Item search results will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Add - New Page Link Modal -->
+    <div id="quick-add-new-page-link-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-quick-add-new-page-link-modal">&times;</span>
+            <h2>Add Page Link to Quick Add Page</h2>
+            <div>
+                <label for="qai-page-link-label">Button Label:</label>
+                <input type="text" id="qai-page-link-label" placeholder="e.g., Drinks, Snacks >">
+            </div>
+            <div>
+                <label for="qai-page-link-target">Target Page Number:</label>
+                <input type="number" id="qai-page-link-target" min="1" step="1">
+            </div>
+            <div>
+                <label for="qai-page-link-color">Button Color:</label>
+                <input type="color" id="qai-page-link-color" value="#A0E7E5">
+            </div>
+            <button id="qai-submit-new-page-link-button" style="margin-top: 15px;">Add Page Link</button>
+        </div>
+    </div>
+
+</body>
+</html> 
