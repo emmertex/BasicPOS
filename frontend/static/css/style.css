@@ -1,0 +1,565 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+header {
+    background-color: #333;
+    color: #fff;
+    padding: 1em 0;
+    text-align: center;
+}
+
+main {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Example layout: two columns */
+    gap: 20px;
+}
+
+section {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+h2 {
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+input[type="text"], button {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+}
+
+button {
+    background-color: #5cb85c;
+    color: white;
+    cursor: pointer;
+    border: none;
+}
+
+button:hover {
+    background-color: #4cae4c;
+}
+
+#item-search-results div {
+    display: flex; /* Use flexbox for layout */
+    justify-content: space-between; /* Pushes button to the right */
+    align-items: center; /* Vertically align items in the middle */
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+
+.item-text-content {
+    flex-grow: 1; /* Allows text content to take available space */
+    margin-right: 10px; /* Space between text and button */
+}
+
+#item-search-results div:hover, #parked-sales-list div:hover {
+    background-color: #f0f0f0;
+}
+
+/* More specific styles will be needed */
+
+/* Modal Styles */
+.modal {
+    position: fixed; /* Stay in place */
+    z-index: 100; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 10% auto; /* Adjusted margin for potentially taller modal */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; 
+    max-width: 750px; /* Increased max-width */
+    border-radius: 8px;
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+    max-height: 80vh; /* Max height relative to viewport height */
+    overflow-y: auto; /* Allow vertical scroll if content exceeds max-height */
+}
+
+.close-button {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#payment-modal div {
+    margin-bottom: 15px;
+}
+
+#payment-modal label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+#payment-modal select, #payment-modal input[type="number"] {
+    width: calc(100% - 22px); /* Full width minus padding and border */
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Customer Management Section Styles */
+#customer-management-section input[type="text"], 
+#customer-management-section button {
+    margin-right: 10px;
+}
+
+.customer-list-item {
+    padding: 10px;
+    border: 1px solid #eee;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+.customer-list-item strong {
+    font-size: 1.1em;
+}
+
+.customer-list-item button.edit-customer-btn {
+    float: right;
+    padding: 5px 10px;
+    font-size: 0.9em;
+    background-color: #f0ad4e; /* Orange for edit */
+}
+
+.customer-list-item button.edit-customer-btn:hover {
+    background-color: #ec971f;
+}
+
+/* Ensure modal input fields are distinct */
+#add-customer-modal div, #edit-customer-modal div {
+    margin-bottom: 10px;
+}
+
+#add-customer-modal label, #edit-customer-modal label {
+    display: block;
+    margin-bottom: 3px;
+    font-weight: bold;
+}
+
+#add-customer-modal input[type="text"], #edit-customer-modal input[type="text"],
+#add-edit-item-modal input[type="text"], #add-edit-item-modal input[type="number"],
+#add-edit-item-modal textarea {
+    width: calc(100% - 22px); /* Full width minus padding and border */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 5px; /* Add some space below inputs */
+}
+
+#add-edit-item-modal textarea {
+    resize: vertical; /* Allow vertical resize only */
+}
+
+/* Styling for labels next to checkboxes */
+#add-edit-item-modal input[type="checkbox"] + label {
+    font-weight: normal;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+#add-edit-item-modal div {
+    margin-bottom: 10px; /* Ensure consistent spacing for all divs in the modal */
+}
+
+/* All Sales Search Section Styles */
+#all-sales-search-section label {
+    display: inline-block;
+    width: 180px; /* Adjust as needed for alignment */
+    margin-bottom: 5px;
+}
+
+#all-sales-search-section input[type="text"],
+#all-sales-search-section select {
+    margin-bottom: 10px;
+    width: calc(100% - 200px); /* Adjust based on label width */
+}
+
+#all-sales-search-section button#search-sales-button { /* Specific selector for the search button */
+    display: block; /* Make it take its own line */
+    width: 90%; /* Make it wide */
+    margin: 15px auto; /* Center it with auto horizontal margins */
+    padding: 12px;
+    background-color: #007bff; /* Bright blue, different from other buttons */
+    color: white;
+    text-align: center;
+    font-size: 1.1em;
+    border: 1px solid #0056b3;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.sale-search-result-item {
+    padding: 10px;
+    border: 1px solid #ddd;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    line-height: 1.6;
+}
+
+.sale-search-result-item strong {
+    font-size: 1.1em;
+    color: #337ab7;
+}
+
+.sale-search-result-item button.view-sale-details-btn {
+    padding: 5px 10px;
+    font-size: 0.9em;
+}
+
+/* Variant Selection Modal Styles */
+#variant-list-container {
+    max-height: 300px; /* Or any suitable height */
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.variant-item {
+    padding: 10px;
+    border: 1px solid #eee;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: #fdfdfd;
+    line-height: 1.6;
+}
+
+.variant-item strong {
+    font-size: 1.05em;
+}
+
+.variant-item button.add-variant-to-cart-btn {
+    float: right;
+    padding: 5px 10px;
+    font-size: 0.9em;
+    background-color: #5cb85c; /* Green, like other add buttons */
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.variant-item button.add-variant-to-cart-btn:hover {
+    background-color: #4cae4c;
+}
+
+/* Item Image Display Styles */
+.item-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Slightly larger previews */
+    gap: 15px;
+    margin-top: 10px;
+    padding-bottom: 10px; /* Add some padding at the bottom */
+}
+
+.image-preview-container {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+    position: relative; 
+    background-color: #f9f9f9;
+}
+
+.image-preview {
+    max-width: 120px; /* Corresponds to grid column minmax */
+    max-height: 120px;
+    object-fit: cover; /* Scales image nicely within the box */
+    display: block;
+    margin: 0 auto 5px auto;
+}
+
+.delete-image-btn {
+    background-color: #f44336; /* Red */
+    color: white;
+    border: none;
+    padding: 3px 6px;
+    font-size: 0.8em;
+    cursor: pointer;
+    border-radius: 3px;
+    display: block; /* Make it block to take its own line or manage with flex/grid for inline */
+    margin: 0 auto; /* Center button if block */
+}
+
+.delete-image-btn:hover {
+    background-color: #d32f2f;
+}
+
+.primary-image-indicator {
+    font-size: 0.7em;
+    color: #007bff;
+    font-weight: bold;
+    display: block; /* Or inline-block if preferred next to something */
+    margin-top: 3px;
+}
+
+/* Ensure modals are still on top if new elements affect z-index somehow (unlikely with this CSS) */
+.modal {
+    /* ... existing modal styles ... */
+    z-index: 1000; /* Example: ensure it's on top */
+}
+
+/* Toast Notification Styles */
+#toast-container {
+    position: fixed;
+    bottom: 20px; /* Or top: 20px; */
+    right: 20px;  /* Or left: 20px; */
+    z-index: 2000; /* Ensure it's above other elements like modals */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Aligns toasts to the right if container is wider */
+}
+
+.toast {
+    background-color: #333; /* Default: info */
+    color: #fff;
+    padding: 15px 20px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    opacity: 0;
+    transform: translateX(100%); /* Start off-screen to the right */
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    min-width: 250px; /* Minimum width for readability */
+    max-width: 400px; /* Maximum width */
+    font-size: 0.9em;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0); /* Slide in */
+}
+
+.toast.success {
+    background-color: #4CAF50; /* Green */
+}
+
+.toast.error {
+    background-color: #f44336; /* Red */
+}
+
+.toast.info {
+    background-color: #2196F3; /* Blue */
+}
+
+.toast.warning {
+    background-color: #ff9800; /* Orange */
+}
+
+/* Optional: Close button for toasts */
+.toast .toast-close-button {
+    float: right;
+    margin-left: 15px;
+    color: #fff;
+    font-weight: bold;
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+/* Styling for images in the item search list */
+.item-search-list-image {
+    width: 50px; /* Or your preferred size */
+    height: 50px;
+    object-fit: cover;
+    margin-right: 10px;
+    border-radius: 4px;
+    border: 1px solid #eee;
+}
+
+/* Drag and Drop Zone Styles */
+.drop-zone {
+    border: 2px dashed #ccc;
+    padding: 25px;
+    text-align: center;
+    background-color: #f9f9f9;
+    color: #555;
+    cursor: pointer;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+.drop-zone p {
+    margin: 0;
+    font-size: 0.9em;
+}
+
+.drop-zone.dragover {
+    border-color: #007bff;
+    background-color: #e9f5ff;
+}
+
+/* Styling for the file input label if needed, though the drop-zone is primary now */
+.drop-zone-container label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 5px;
+}
+
+/* Quick Add Dashboard Styles */
+#quick-add-dashboard-section {
+    grid-column: span 2; /* Make it span both columns if in a 2-column layout */
+    margin-top: 20px;
+}
+
+#quick-add-page-info {
+    margin-bottom: 10px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+#quick-add-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); /* Adjust minmax for desired button size */
+    gap: 10px;
+    padding: 10px;
+    background-color: #e9e9e9;
+    border-radius: 5px;
+    min-height: 150px; /* Ensure it has some height even when empty */
+}
+
+.quick-add-item {
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f8f8f8; /* Default color */
+    color: #333;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.9em;
+    word-wrap: break-word;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80px; /* Minimum height for items */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
+}
+
+.quick-add-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.quick-add-item.type-item {
+    /* Specific styles for type 'item' if needed */
+    /* background-color: #e6fff2; */
+}
+
+.quick-add-item.type-page_link {
+    /* Specific styles for type 'page_link' if needed */
+    /* background-color: #e6f2ff; */
+    font-weight: bold;
+}
+
+/* Style for the label within quick-add-item if needed, e.g., for text overflow */
+.quick-add-item-label {
+    /* max-height: 3.6em; /* Roughly 2 lines of text */
+    /* overflow: hidden; */
+    /* text-overflow: ellipsis; */
+}
+
+/* Styles for Quick Add Edit Mode */
+.quick-add-item .delete-qai-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background-color: #ff4d4d;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.quick-add-item .delete-qai-btn:hover {
+    opacity: 1;
+}
+
+.quick-add-item.dragging {
+    opacity: 0.5;
+    border-style: dashed;
+}
+
+/* Make quick add items aware they are draggable in edit mode */
+.quick-add-item.editable {
+    cursor: grab; /* Indicates draggable */
+    position: relative; /* For absolute positioning of delete button */
+}
+
+.quick-add-item.editable.is-back-button {
+    cursor: default; /* Non-draggable 'Back' button */
+}
+
+.quick-add-item.has-image {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: white; /* Default text color for labels on images, adjust as needed */
+    text-shadow: 1px 1px 2px black; /* Make label more readable on various images */
+}
+
+/* Style for the label when item has an image background */
+.quick-add-item-image-label {
+    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent background for label */
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    /* Position it if needed, e.g., at the bottom */
+    /* position: absolute; */
+    /* bottom: 5px; */
+    /* left: 5px; */
+    /* right: 5px; */
+    /* text-align: center; */
+}
+
+#quick-add-controls button {
+    padding: 6px 10px;
+    font-size: 0.85em;
+    margin-left: 5px;
+}
+
+#quick-add-new-item-modal .item-search-result-for-quickadd {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+#quick-add-new-item-modal .item-search-result-for-quickadd:hover {
+    background-color: #f0f0f0;
+} 
