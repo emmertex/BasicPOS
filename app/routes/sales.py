@@ -24,20 +24,27 @@ def _simple_payment_to_dict_for_sale(payment):
 
 bp = Blueprint('sales', __name__)
 
+
 def sale_item_to_dict(sale_item):
     if not sale_item:
         return None
     # Ensure sale_item.item is loaded, might need to adjust lazy loading or query options
     # For now, assuming it gets loaded by accessing it.
+
+    # Safely get price_at_sale, defaulting to None if attribute is missing or value is None
+    price_at_sale_value = getattr(sale_item, 'price_at_sale', None)
+
     return {
         'id': sale_item.id,
         'sale_id': sale_item.sale_id,
         'item_id': sale_item.item_id,
         'item': item_to_dict(sale_item.item) if sale_item.item else None, 
         'sale_price': float(sale_item.sale_price) if sale_item.sale_price is not None else None,
+        'price_at_sale': float(price_at_sale_value) if price_at_sale_value is not None else None,
         'notes': sale_item.notes,
         'quantity': sale_item.quantity
     }
+
 
 def sale_to_dict(sale):
     if not sale:
@@ -52,7 +59,7 @@ def sale_to_dict(sale):
     # Use SaleService method to keep logic centralized if complex, or calculate directly
     # For now, direct calculation for simpler _calculate_sale_details call
     from app.services.sale_service import SaleService # Import here to use _calculate_sale_details
-    sale_total, amount_paid, amount_due = SaleService._calculate_sale_details(sale.id)
+    sale_total, amount_paid, amount_due, total_tax = SaleService._calculate_sale_details(sale.id)
 
     return {
         'id': sale.id,
@@ -68,6 +75,7 @@ def sale_to_dict(sale):
         'sale_total': float(sale_total) if sale_total is not None else 0.0,
         'amount_paid': float(amount_paid) if amount_paid is not None else 0.0,
         'amount_due': float(amount_due) if amount_due is not None else 0.0,
+        'total_tax': float(total_tax) if total_tax is not None else 0.0,
     }
 
 @bp.route('/', methods=['POST'])

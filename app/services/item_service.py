@@ -6,6 +6,8 @@ from sqlalchemy.exc import IntegrityError
 import copy
 import uuid
 from flask import current_app
+from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy import or_, and_
 
 class ItemService:
     @staticmethod
@@ -211,9 +213,26 @@ class ItemService:
                 new_item_version = Item(**new_version_data)
 
                 db.session.add(new_item_version)
-                db.session.commit()
+                db.session.commit() # Commit to get ID for new_item_version
+
+                # === Copy photos from old version to new version ===
+                if new_item_version.id and item_to_update.photos:
+                    photos_copied = False
+                    for old_photo in item_to_update.photos:
+                        new_photo_for_version = Photo(
+                            item_id=new_item_version.id, 
+                            image_url=old_photo.image_url, 
+                            is_primary=old_photo.is_primary 
+                            # Add other photo attributes to copy if they exist e.g. alt_text
+                        )
+                        db.session.add(new_photo_for_version)
+                        photos_copied = True
+                    if photos_copied:
+                        db.session.commit() # Commit the new photo records for the new version
+                # === End of photo copying block ===
+
                 updated_item_instance = new_item_version
-                # Image processing will happen after this block
+                # Image processing for newly uploaded files will happen after this block for updated_item_instance
             except IntegrityError as e: 
                 db.session.rollback()
                 return None, f"Database integrity error: {str(e.orig)}"
@@ -297,4 +316,27 @@ class ItemService:
             return True, None
         except Exception as e:
             db.session.rollback()
-            return False, str(e) 
+            return False, str(e)
+
+    @staticmethod
+    def get_all_items(sku=None, title_query=None, is_active_filter=None):
+        query = Item.query.options(selectinload(Item.photos), selectinload(Item.variants))
+        
+        # Current version is always implicitly part of item fetching unless stated otherwise for admin views
+        query = query.filter(Item.is_current_version == True)
+
+        if is_active_filter is not None: # Apply is_active filter if provided
+            query = query.filter(Item.is_active == is_active_filter)
+
+        if sku:
+            # Prioritize exact SKU match if provided
+            query = query.filter(Item.sku == sku)
+        elif title_query: # Use elif to not override SKU if both somehow provided and SKU is stricter
+            search_term = f"%{title_query}%"
+            query = query.filter(Item.title.ilike(search_term))
+        
+        # Add ordering, e.g., by title or ID
+        query = query.order_by(Item.title.asc())
+        
+        items = query.all()
+        return items 

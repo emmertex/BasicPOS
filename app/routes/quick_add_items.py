@@ -55,20 +55,39 @@ def delete_quick_add_item_route(qai_id):
         # Log error
         return jsonify({"error": "An unexpected error occurred deleting the quick add item."}), 500
 
-@quick_add_items_bp.route('/page/<int:page_number>/reorder', methods=['POST'])
-def reorder_quick_add_items_route(page_number):
+@quick_add_items_bp.route('/reorder', methods=['PUT'])
+def reorder_quick_add_items_route():
     data = request.get_json()
-    if not data or 'ordered_ids' not in data or not isinstance(data['ordered_ids'], list):
-        return jsonify({"error": "Invalid payload: 'ordered_ids' list is required."}), 400
     
-    ordered_ids = data['ordered_ids']
+    if not data:
+        return jsonify({"error": "Invalid payload: No data provided."}), 400
+
+    ordered_ids = data.get('ordered_ids')
+    page_number = data.get('page_number')
+
+    if not isinstance(ordered_ids, list):
+        return jsonify({"error": "Invalid payload: 'ordered_ids' must be a list."}), 400
+    if not isinstance(page_number, int) or page_number <= 0:
+        return jsonify({"error": "Invalid payload: 'page_number' must be a positive integer."}), 400
+    
     try:
-        result = QuickAddItemService.reorder_quick_add_items(page_number, ordered_ids)
-        return jsonify(result), 200
-    except ValueError as ve: # For specific validation errors from service
-        return jsonify({"error": str(ve)}), 400
+        # The service expects a list of strings for ordered_ids, as sent by the frontend
+        # The frontend already maps them to int for the payload, but let's ensure they are strings for the service as per its signature
+        # ordered_ids_str = [str(id_val) for id_val in ordered_ids] # Ensure service gets strings if it expects them
+        # Correction: The service method `reorder_quick_add_items` takes `ordered_ids_str` as its param name, 
+        # but the frontend now sends integer IDs in the payload. The service converts them. So direct pass is fine.
+
+        reordered_item_models = QuickAddItemService.reorder_quick_add_items(page_number, ordered_ids)
+        
+        if reordered_item_models is None:
+            # This indicates an issue within the service (e.g., DB error, fundamental validation)
+            return jsonify({"error": "Failed to reorder items due to a server-side issue or invalid input for service."}), 500
+        
+        return jsonify([item.to_dict() for item in reordered_item_models]), 200
+    except ValueError as ve: # Catch specific errors if service raises them
+        return jsonify({"error": f"Validation error during reorder: {str(ve)}"}), 400
     except Exception as e:
-        # Log error
+        # Log the exception e (e.g., import logging; logging.exception("Reorder error"))
         return jsonify({"error": "An unexpected error occurred reordering the quick add items."}), 500
 
 # Future: Add PUT and DELETE endpoints for managing quick_add_items if needed

@@ -5,6 +5,7 @@ from app.models.item import Item
 from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal
+from flask import current_app # Added for config access
 
 class SaleService:
     @staticmethod
@@ -76,15 +77,23 @@ class SaleService:
         if not sale:
             return None, "Sale not found."
 
-        # Optional: Add logic here to validate status transitions 
-        # (e.g., cannot go from 'Paid' back to 'Open' directly without specific rules)
         valid_statuses = [s for s in Sale.__table__.columns['status'].type.enums]
         if new_status not in valid_statuses:
             return None, f"Invalid status: {new_status}. Valid statuses are: {valid_statuses}"
 
+        original_status = sale.status
+        sale.status = new_status
+
+        # Handle stock adjustment if voiding a previously paid sale
+        if new_status == 'Void' and original_status == 'Paid':
+            updated_stock, stock_error = SaleService._update_stock_for_sale_items(sale, increment=True)
+            if not updated_stock:
+                # Rollback status change if stock adjustment fails?
+                # For now, log and proceed with status change.
+                db.session.rollback() # Rollback the status change if stock update fails critically
+                return None, f"Failed to void sale: stock adjustment error - {stock_error}"
+
         try:
-            sale.status = new_status
-            # sale.updated_at will be handled by the model's onupdate setting
             db.session.commit()
             return sale, None
         except Exception as e:
@@ -107,8 +116,17 @@ class SaleService:
         if not item:
             return None, "Item not found or not active."
 
-        sale_price_override = item_data.get('sale_price')
-        sale_price = Decimal(sale_price_override) if sale_price_override is not None else item.price
+        # Determine the sale_price: use override if provided, else item's master price.
+        # This is the price the item will actually be sold for in this line item.
+        sale_price_override = item_data.get('sale_price') # For future use if we allow overriding sale_price directly on add
+        effective_sale_price = Decimal(sale_price_override) if sale_price_override is not None else item.price
+
+        # Determine price_at_sale: This should be the item's master price at the time of adding to cart.
+        # The frontend sends this as 'price_at_sale' in item_data, originally sourced from item.price when first added from search/quickadd.
+        price_for_price_at_sale_field = item_data.get('price_at_sale') 
+        if price_for_price_at_sale_field is None:
+            # Fallback if frontend didn't send it (should not happen with current frontend)
+            price_for_price_at_sale_field = item.price 
 
         try:
             # Check if item already exists in sale, if so, update quantity (optional behavior)
@@ -128,7 +146,8 @@ class SaleService:
                 sale_id=sale_id,
                 item_id=item_id,
                 quantity=int(quantity),
-                sale_price=sale_price,
+                sale_price=effective_sale_price, # The price it's actually sold at for this line
+                price_at_sale=Decimal(price_for_price_at_sale_field), # The item's price when added
                 notes=item_data.get('notes')
             )
             db.session.add(new_sale_item)
@@ -216,7 +235,7 @@ class SaleService:
     def _calculate_sale_details(sale_id):
         sale = Sale.query.get(sale_id)
         if not sale:
-            return None, None, None # sale_total, amount_paid, amount_due
+            return None, None, None, None # sale_total, amount_paid, amount_due, total_tax_amount
 
         sale_total = Decimal('0.00')
         for si in sale.sale_items:
@@ -227,7 +246,37 @@ class SaleService:
             amount_paid += p.amount
             
         amount_due = sale_total - amount_paid
-        return sale_total, amount_paid, amount_due
+
+        # Calculate GST component from the GST-inclusive sale_total
+        gst_rate = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', 10))
+        if sale_total > 0 and gst_rate > 0: # Avoid division by zero or negative rates
+            total_tax_amount = sale_total * (gst_rate / (Decimal('100') + gst_rate))
+        else:
+            total_tax_amount = Decimal('0.00')
+        
+        return sale_total, amount_paid, amount_due, total_tax_amount.quantize(Decimal('0.01'))
+
+    @staticmethod
+    def _update_stock_for_sale_items(sale_instance, increment=False):
+        """ Helper method to update stock quantities for items in a sale. """
+        if not sale_instance:
+            return False, "Sale instance not provided."
+
+        try:
+            for sale_item in sale_instance.sale_items:
+                item = Item.query.get(sale_item.item_id)
+                if item and item.is_stock_tracked:
+                    if increment:
+                        item.stock_quantity += sale_item.quantity
+                    else:
+                        # Prevent stock from going excessively negative if not allowed
+                        # This basic deduction assumes sufficient stock or allows negative stock
+                        item.stock_quantity -= sale_item.quantity
+            # db.session.commit() will be handled by the calling function
+            return True, None
+        except Exception as e:
+            # db.session.rollback() should be handled by the calling function
+            return False, str(e)
 
     @staticmethod
     def check_and_update_payment_status(sale_id):
@@ -238,32 +287,42 @@ class SaleService:
         if not sale:
             return None, "Sale not found for status update."
 
-        _ , _ , amount_due = SaleService._calculate_sale_details(sale_id)
-        if amount_due is None: # Should not happen if sale exists
-            return sale, "Could not calculate sale details."
+        # _calculate_sale_details now returns: sale_total, amount_paid, amount_due, total_tax_amount
+        _sale_total, _amount_paid, amount_due, _total_tax = SaleService._calculate_sale_details(sale_id)
+        
+        if amount_due is None: # Should not happen if sale exists and _calculate_sale_details succeeded
+            current_app.logger.error(f"_calculate_sale_details returned None for amount_due for sale_id: {sale_id}")
+            return sale, "Could not calculate sale details properly."
 
         original_status = sale.status
 
         if amount_due <= Decimal('0.00') and sale.status != 'Paid':
-            # Fully paid or overpaid
-            if sale.status != 'Void': # Don't change status if it's already Void
+            if sale.status != 'Void': 
                 sale.status = 'Paid'
+                # Decrement stock when sale becomes Paid
+                updated_stock, stock_error = SaleService._update_stock_for_sale_items(sale, increment=False)
+                if not updated_stock:
+                    # This is tricky: payment is made, sale is Paid, but stock update failed.
+                    # For now, we'll log this. Ideally, this entire block should be atomic or have compensation.
+                    print(f"Critical: Failed to update stock for sale {sale.id} after payment: {stock_error}")
+                    # Potentially raise an error or set a flag on the sale for manual review.
         elif amount_due > Decimal('0.00') and sale.status == 'Paid':
-            # Was marked Paid, but now is not (e.g., a payment was reversed, or items added after paid)
-            # Revert to a sensible previous status, e.g., 'Invoice' or 'Open' depending on workflow
-            # For now, let's simplify and revert to 'Invoice' if it was 'Paid'.
-            # More complex logic could check previous status history if that was stored.
-            sale.status = 'Invoice' # Or based on business rules
-        
-        if sale.status != original_status:
+            # Sale was Paid, but now is not (e.g. payment reversed - not a current feature, but for robustness)
+            # Revert to 'Invoice' or another appropriate status
+            sale.status = 'Invoice' # Example revert status
+            # Increment stock back if a Paid sale becomes unpaid
+            updated_stock, stock_error = SaleService._update_stock_for_sale_items(sale, increment=True)
+            if not updated_stock:
+                print(f"Critical: Failed to increment stock for sale {sale.id} after status change from Paid: {stock_error}")
+
+        if original_status != sale.status:
             try:
                 db.session.commit()
-                return sale, f"Sale status updated to {sale.status}."
             except Exception as e:
                 db.session.rollback()
-                return sale, f"Error updating sale status: {str(e)}"
+                return None, f"Failed to commit status/stock changes: {str(e)}"
         
-        return sale, "Sale payment status remains unchanged."
+        return sale, None # Return the sale instance, potentially with new status
 
     @staticmethod
     def update_sale_details(sale_id, data):

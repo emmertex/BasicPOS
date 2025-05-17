@@ -1,9 +1,11 @@
 from flask import Flask, send_from_directory, current_app
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from config import Config
 import os
 
 db = SQLAlchemy()
+migrate = Migrate()
 
 def create_app(config_class=Config):
     # app.root_path is the path to the directory where the app package (app/) is located.
@@ -11,12 +13,16 @@ def create_app(config_class=Config):
     # and then into the 'frontend' directory.
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     static_folder_path = os.path.join(project_root, 'frontend', 'static')
+    template_folder_path = os.path.join(project_root, 'templates')
     frontend_dir_path = os.path.join(project_root, 'frontend')
 
-    app = Flask(__name__, static_folder=static_folder_path)
+    app = Flask(__name__, 
+                static_folder=static_folder_path, 
+                template_folder=template_folder_path)
     app.config.from_object(config_class)
 
     db.init_app(app)
+    migrate.init_app(app, db)
 
     from . import models
 
@@ -35,6 +41,9 @@ def create_app(config_class=Config):
 
     from app.routes.quick_add_items import quick_add_items_bp
     app.register_blueprint(quick_add_items_bp, url_prefix='/api/quick_add_items')
+
+    from app.routes.print_routes import print_bp
+    app.register_blueprint(print_bp)
 
     @app.route('/')
     def serve_index():
