@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ document_title }} - Sale #{{ sale.id }}</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; font-size: 10pt; line-height: 1.3; color: #000; margin: 0; padding: 5px; width: 280px; /* Common receipt width, adjust as needed */ }
+        .receipt-container { width: 100%; margin: 0 auto; }
+        .header-section { text-align: center; margin-bottom: 10px; }
+        .company-info img { max-width: 150px; margin-bottom: 5px; }
+        .company-info p { margin: 1px 0; font-size: 9pt; }
+        .document-info { text-align: center; margin-bottom: 10px; }
+        .document-info h1 { font-size: 14pt; margin: 0 0 5px 0; text-transform: uppercase; }
+        .document-info p { margin: 1px 0; font-size: 9pt; }
+        .customer-info-section { margin-bottom: 10px; font-size: 9pt; }
+        .customer-info-section p { margin: 1px 0; }
+        hr.separator { border: none; border-top: 1px dashed #666; margin: 8px 0; }
+        table.items-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 9pt; }
+        table.items-table th, table.items-table td { padding: 2px 1px; text-align: left; vertical-align: top; }
+        table.items-table th { border-bottom: 1px solid #666; }
+        table.items-table td.qty, table.items-table td.price, table.items-table td.total { text-align: right; }
+        table.items-table .item-name { word-break: break-all; }
+        .totals-section { margin-top: 5px; font-size: 10pt; }
+        .totals-section table { width: 100%; }
+        .totals-section td { padding: 1px; }
+        .totals-section td.label { text-align: left; }
+        .totals-section td.value { text-align: right; }
+        .totals-section tr.grand-total td { font-weight: bold; border-top: 1px dashed #666; padding-top: 3px; }
+        .payment-details-section { margin-top: 5px; font-size: 9pt; }
+        .payment-details-section p { margin: 1px 0; }
+        .notes-section { margin-top: 10px; font-size: 9pt; }
+        .footer-section { text-align: center; margin-top: 10px; font-size: 8pt; }
+        .footer-section p { margin: 1px 0; }
+
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; width: auto; margin:0; padding:0; }
+            /* Add any printer-specific overrides here if needed */
+        }
+    </style>
+</head>
+<body>
+    <div class="receipt-container">
+        <header class="header-section">
+            <div class="company-info">
+                {% if company_logo_url_small %}
+                <img src="{{ company_logo_url_small }}" alt="{{ company_name }}">
+                {% endif %}
+                <p><strong>{{ company_name }}</strong></p>
+                <p>{{ company_abn | default('', true) }}</p>
+                <p>{{ company_address_line1 }}</p>
+                <p>Ph: {{ company_phone }}</p>
+            </div>
+        </header>
+
+        <section class="document-info">
+            <h1>{{ document_title | upper }}</h1>
+            <p>{{ document_title }} #: {{ sale.id }}</p>
+            <p>Date: {{ generation_date_time }}</p> {# More precise for receipt #}
+        </section>
+        
+        {% if sale.customer %}
+        <section class="customer-info-section">
+            <hr class="separator">
+            <p>Customer: {{ sale.customer.name }}</p>
+            {% if sale.customer.phone %}<p>Phone: {{ sale.customer.phone }}</p>{% endif %}
+        </section>
+        {% endif %}
+
+        <hr class="separator">
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th class="qty">Qty</th>
+                    <th class="price">Price</th>
+                    <th class="total">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in sale.sale_items %}
+                {% set original_unit_price = item.price_at_sale if item.price_at_sale is not none else 0 %}
+                {% set final_unit_price = item.sale_price if item.sale_price is not none else 0 %}
+                {% set unit_discount = original_unit_price - final_unit_price %}
+                <tr>
+                    <td class="item-name">
+                        {{ item.item.title | default('N/A') }}
+                        {% if item.item.sku %}<small> ({{ item.item.sku }})</small>{% endif %}
+                        {% if item.notes %}<br><small><em>{{ item.notes }}</em></small>{% endif %}
+                    </td>
+                    <td class="qty">{{ item.quantity }}</td>
+                    <td class="price">{{ "%.2f" | format(original_unit_price) }}</td>
+                    <td class="total">{{ "%.2f" | format(original_unit_price * item.quantity if item.quantity is not none else 0) }}</td>
+                </tr>
+                {% if unit_discount > 0.004 %}
+                <tr class="discount-line">
+                    <td class="item-name"><small style="padding-left: 10px; color: #e74c3c;">--- Discount Applied</small></td>
+                    <td class="qty"></td> {# Or quantity again if discount is per item and total shown #}
+                    <td class="price"><small style="color: #e74c3c;">-${{ "%.2f" | format(unit_discount) }}</small></td>
+                    <td class="total"><small style="color: #e74c3c;">-${{ "%.2f" | format(unit_discount * item.quantity if item.quantity is not none else 0) }}</small></td>
+                </tr>
+                {% endif %}
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align:center;">- No items -</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <hr class="separator">
+
+        <section class="totals-section">
+            <table>
+                <tr>
+                    <td class="label">Subtotal:</td>
+                    <td class="value">${{ "%.2f" | format(display_sale_total - display_total_tax) }}</td>
+                </tr>
+                <tr>
+                    <td class="label">GST:</td>
+                    <td class="value">${{ "%.2f" | format(display_total_tax) }}</td>
+                </tr>
+                <tr class="grand-total">
+                    <td class="label">TOTAL:</td>
+                    <td class="value">${{ "%.2f" | format(display_sale_total) }}</td>
+                </tr>
+                <tr><td colspan="2">&nbsp;</td></tr>
+                {% for payment in sale.payments %}
+                    {% if payment.amount > 0 %}
+                    <tr>
+                        <td class="label">Paid ({{ payment.payment_type }}):</td>
+                        <td class="value">-${{ "%.2f" | format(payment.amount) }}</td>
+                    </tr>
+                    {% endif %}
+                {% endfor %}
+                <tr class="grand-total">
+                    <td class="label">AMOUNT DUE:</td>
+                    <td class="value">${{ "%.2f" | format(display_amount_due) }}</td>
+                </tr>
+            </table>
+        </section>
+
+        {% if sale.customer_notes %}
+        <hr class="separator">
+        <section class="notes-section">
+            <p><strong>Notes:</strong> {{ sale.customer_notes }}</p>
+        </section>
+        {% endif %}
+
+        {% if document_title == 'Quotation' and quotation_terms_short %}
+        <hr class="separator">
+        <section class="notes-section">
+            <p>{{ quotation_terms_short }}</p>
+            <p>Valid Until: {{ quotation_valid_until_date }}</p>
+        </section>
+        {% endif %}
+
+        <hr class="separator">
+        <footer class="footer-section">
+            <p>{{ company_footer_message_receipt | default('Thank you!') }}</p>
+            {% if company_website %}<p>{{ company_website }}</p>{% endif %}
+        </footer>
+    </div>
+</body>
+</html> 
