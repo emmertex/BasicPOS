@@ -1,22 +1,43 @@
 from app import db
 from app.models import QuickAddItem, Item # Item might be needed for eager loading or joining if we expand to_dict
 from sqlalchemy.orm import joinedload
+from flask import current_app
 
 class QuickAddItemService:
 
     @staticmethod
     def get_quick_add_items_by_page(page_number):
-        """Fetches quick add items for a specific page, ordered by position."""
+        """Fetches quick add items for a specific page, ordered by position.
+           Only includes items that are currently active and the current version."""
         try:
-            # Eager load the related Item object to avoid N+1 queries when accessing item.sku or item.price
-            items = QuickAddItem.query.options(joinedload(QuickAddItem.item)) \
-                                      .filter_by(page_number=page_number) \
-                                      .order_by(QuickAddItem.position.asc()) \
-                                      .all()
-            return [item.to_dict() for item in items]
+            items_query = QuickAddItem.query \
+                .join(Item, QuickAddItem.item_id == Item.id) \
+                .filter(QuickAddItem.page_number == page_number) \
+                .filter(Item.is_active == True) \
+                .filter(Item.is_current_version == True) \
+                .options(joinedload(QuickAddItem.item).selectinload(Item.photos)) \
+                .order_by(QuickAddItem.position.asc())
+            
+            # For page_link types, we don't join with Item, so fetch them separately and combine
+            page_links_query = QuickAddItem.query \
+                .filter(QuickAddItem.page_number == page_number) \
+                .filter(QuickAddItem.type == 'page_link') \
+                .order_by(QuickAddItem.position.asc())
+
+            # Execute queries
+            active_items = items_query.all()
+            page_links = page_links_query.all()
+
+            # Combine and sort by original position, as the separate queries might mess up unified ordering if not careful.
+            # A more robust way if positions can overlap between types (which they shouldn't if managed well)
+            # would be to fetch all for the page then filter in Python, but that's less efficient.
+            # Assuming positions are unique across all types for a given page.
+            
+            combined_results = sorted(active_items + page_links, key=lambda x: x.position)
+            
+            return [item.to_dict() for item in combined_results]
         except Exception as e:
-            # Log error e.g., current_app.logger.error(f"Error fetching quick add items for page {page_number}: {e}")
-            print(f"Error fetching quick add items for page {page_number}: {e}") # Basic print for now
+            current_app.logger.error(f"Error fetching quick add items for page {page_number}: {e}")
             return []
 
     @staticmethod
@@ -130,76 +151,71 @@ class QuickAddItemService:
             raise e
 
     @staticmethod
-    def reorder_quick_add_items(page_number, ordered_ids):
-        """Reorders quick add items for a specific page based on a list of their IDs."""
+    def reorder_quick_add_items(page_number, ordered_ids_str):
+        """Reorders quick add items for a specific page based on a list of their IDs.
+           Returns the full list of items for that page in their new order, or None on failure."""
         try:
-            # Fetch all items for the page first to ensure we are working with a consistent set
-            items_on_page = QuickAddItem.query.filter_by(page_number=page_number).all()
-            item_map = {item.id: item for item in items_on_page}
-
-            if len(ordered_ids) != len(items_on_page):
-                # This could happen if an item was added/deleted since client fetched
-                # Or if client sends a partial list. For robustness, might need a strategy.
-                # For now, assume client sends all current item IDs for that page in new order.
-                print(f"Warning: Mismatch in item count for reorder. Client: {len(ordered_ids)}, Server: {len(items_on_page)} for page {page_number}")
-                # Consider raising an error or attempting a best-effort reorder if requirements allow.
-                # If counts mismatch, it's very likely some IDs sent by client won't be in item_map.
-
-            updated_items = []
-            for index, item_id_str in enumerate(ordered_ids):
+            with db.session.no_autoflush:
+                # Fetch all items for the page that are intended to be reordered.
+                # Only consider items whose IDs are in the provided ordered_ids_str list.
+                
+                # Convert string IDs from client to integers for DB query
                 try:
-                    item_id = int(item_id_str) # Convert string ID from client to int
+                    target_item_ids = [int(id_str) for id_str in ordered_ids_str]
                 except ValueError:
-                    print(f"Warning: Could not convert item_id '{item_id_str}' to int during reorder. Skipping.")
-                    continue # Skip this ID if it's not a valid integer
-                
-                if item_id in item_map:
-                    item_to_update = item_map[item_id]
-                    if item_to_update.position != index:
-                        item_to_update.position = index
-                        updated_items.append(item_to_update)
-                else:
-                    # This item_id is not on this page according to server, or not found
-                    print(f"Warning: Item ID {item_id} (from client list) not found in server's item_map for page {page_number}.")
-                    # This is where the original warnings are coming from.
-                    # This situation implies the client's view of the page is out of sync
-                    # or it sent an ID that genuinely doesn't belong/exist.
-            
-            # If updated_items is empty after processing, it means either:
-            # 1. No actual position changes were needed for the items found.
-            # 2. None of the IDs sent by the client were found in the item_map (e.g., due to count mismatch and all IDs being new/unexpected)
-            if not updated_items and len(ordered_ids) > 0 : # Check if ordered_ids was not empty to begin with
-                 # Check if this is because all items were simply not found vs. genuinely no reorder needed
-                all_client_ids_found = True
-                for item_id_str_check in ordered_ids:
-                    try:
-                        if int(item_id_str_check) not in item_map:
-                            all_client_ids_found = False
-                            break
-                    except ValueError:
-                        all_client_ids_found = False # Invalid ID format from client
-                        break
-                
-                if not all_client_ids_found:
-                    # This implies a significant discrepancy. The message should reflect this.
-                    # The current message "No reordering necessary..." might be misleading in this case.
-                    # However, for now, the logic proceeds, and if no items are updated, it commits nothing.
-                    # A more robust solution might raise an error here if critical IDs are missing.
-                    pass # Existing logic handles this by not updating anything if no valid items are processed.
+                    # Handle cases where IDs are not valid integers if necessary, though frontend should send ints
+                    db.session.rollback()
+                    print(f"Error: Non-integer ID found in ordered_ids_str for page {page_number}")
+                    return None # Or raise specific error
 
-            # Original check: 
-            # if not updated_items and len(ordered_ids) == len(items_on_page):
-            # This condition (len(ordered_ids) == len(items_on_page)) might be too strict if we allow partial matches
-            # A simpler check if nothing was updated:
-            if not updated_items:
-                return {"message": "No items were updated. This could be due to no changes in order, or discrepancies in item lists.", "updated_count": 0}
+                # Fetch items that are on the specified page AND are in the list of IDs to be reordered
+                items_to_reorder = QuickAddItem.query.filter(
+                    QuickAddItem.page_number == page_number,
+                    QuickAddItem.id.in_(target_item_ids)
+                ).all()
 
-            db.session.commit()
-            return {"message": f"Successfully reordered {len(updated_items)} items on page {page_number}.", "updated_count": len(updated_items)}
+                item_map = {item.id: item for item in items_to_reorder}
+                
+                # Verify that all IDs in ordered_ids_str correspond to items fetched for this page.
+                # If an ID from ordered_ids_str is not in item_map, it means it either doesn't exist,
+                # or isn't on this page_number. This could be an error condition.
+                if len(target_item_ids) != len(items_to_reorder):
+                    print(f"Warning: Mismatch between provided IDs ({len(target_item_ids)}) and found items ({len(items_to_reorder)}) for page {page_number}. Some IDs may be invalid or not on this page.")
+                    # Potentially, we could raise an error here if strict matching is required.
+                    # For now, we proceed to reorder only the items that were found.
+
+                updated_count = 0
+                for new_position, item_id in enumerate(target_item_ids):
+                    if item_id in item_map:
+                        item = item_map[item_id]
+                        if item.position != new_position:
+                            item.position = new_position
+                            updated_count += 1
+                    else:
+                        # This ID was in ordered_ids_str but not found among items_to_reorder.
+                        # This indicates a discrepancy, as noted by the warning above.
+                        print(f"Skipping ID {item_id} during reorder: not found on page {page_number} or does not exist.")
+
+            if updated_count > 0:
+                db.session.commit()
+            else:
+                # No actual position changes occurred among the found items.
+                # Or, potentially, no items were found if target_item_ids was empty or all invalid.
+                db.session.rollback() # No changes to commit
+                print(f"No position updates made for Quick Add Items on page {page_number}.")
+
+            # After potential commit, fetch all items for the page again to return them in the new order
+            final_ordered_items = QuickAddItem.query.options(joinedload(QuickAddItem.item)) \
+                                          .filter_by(page_number=page_number) \
+                                          .order_by(QuickAddItem.position.asc()) \
+                                          .all()
+            return final_ordered_items
+
         except Exception as e:
             db.session.rollback()
             print(f"Error reordering quick add items for page {page_number}: {e}")
-            raise e
+            # Consider logging the error: current_app.logger.error(...)
+            return None # Indicate failure to the route
 
     # Placeholder for update and delete methods if an admin interface is built
     # @staticmethod
