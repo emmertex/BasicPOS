@@ -8,3 +8,14 @@ venv/
 .vscode/
 .cursor/
 *.pyc
+config.py
+*.jpeg
+*.png
+*.gif
+*.jpeg
+*.webp
+*.svg
+*.ico
+*.bmp
+*.tiff
+*.tif
