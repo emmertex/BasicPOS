@@ -55,4 +55,16 @@ export function expandQuickAddDashboard() {
     if (quickAddDashboardSection) {
         quickAddDashboardSection.classList.remove('collapsed');
     }
-} 
+}
+
+// Functions for dynamic left-panel sections
+export function toggleLeftPanelSection(sectionToExpand, sectionToCollapse) {
+    if (sectionToExpand) {
+        sectionToExpand.classList.remove('collapsed-section');
+        sectionToExpand.classList.add('expanded-section');
+    }
+    if (sectionToCollapse) {
+        sectionToCollapse.classList.remove('expanded-section');
+        sectionToCollapse.classList.add('collapsed-section');
+    }
+}

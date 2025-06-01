@@ -70,6 +70,7 @@ class QuickAddItemService:
                 type=data['type'],
                 label=data['label'],
                 item_id=data.get('item_id'),
+                item_parent_id=data.get('item_parent_id'),
                 target_page_number=data.get('target_page_number'),
                 color=data.get('color')
             )
@@ -99,6 +100,7 @@ class QuickAddItemService:
             if 'page_number' in data: qai.page_number = data['page_number']
             if 'position' in data: qai.position = data['position']
             if 'type' in data: qai.type = data['type'] # Be careful changing type, ensure consistency
+            if 'item_parent_id' in data: qai.item_parent_id = data['item_parent_id']
             
             if qai.type == 'item':
                 if 'item_id' in data: # Allow changing the linked item

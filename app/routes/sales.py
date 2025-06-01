@@ -70,6 +70,7 @@ def sale_to_dict(sale):
         'updated_at': sale.updated_at.isoformat() if sale.updated_at else None,
         'customer_notes': sale.customer_notes,
         'internal_notes': sale.internal_notes,
+        'purchase_order_number': sale.purchase_order_number,
         'sale_items': [sale_item_to_dict(si) for si in sale.sale_items],
         'payments': [_simple_payment_to_dict_for_sale(p) for p in sale.payments], 
         'sale_total': float(sale_total) if sale_total is not None else 0.0,
@@ -197,9 +198,9 @@ def update_sale_details_route(sale_id):
         return jsonify({"error": "Invalid input, no data provided."}), 400
     
     # Ensure at least one valid field is being updated
-    valid_update_fields = ['customer_id', 'customer_notes', 'internal_notes'] # Add more as service supports
+    valid_update_fields = ['customer_id', 'customer_notes', 'internal_notes', 'purchase_order_number'] # Add more as service supports
     if not any(key in data for key in valid_update_fields):
-        return jsonify({"error": f"No valid fields to update. Provide one of: {valid_update_fields}"}), 400
+        return jsonify({"error": f"Invalid input. Provide at least one of {valid_update_fields} to update."}), 400
 
     sale, error = SaleService.update_sale_details(sale_id, data)
     if error:

@@ -78,7 +78,7 @@ main {
     background-color: #f9f9f9; /* Light background for panels */
     border: 1px solid #ddd;
     border-radius: 5px;
-    display: flex;
+    /* display: flex; */
     flex-direction: column;
     overflow-y: auto; /* Allow individual panels to scroll if content overflows */
     /* height: 100%; /* REVERTED - Caused issues with parent padding */
@@ -147,6 +147,57 @@ main {
 #left-panel > section {
     flex-shrink: 1; 
 }
+
+/* Styles for dynamic left-panel sections */
+.left-panel-section .left-panel-section-title {
+    cursor: pointer;
+    padding: 10px;
+    background-color: #e9ecef; /* Light grey background for title */
+    border-bottom: 1px solid #ddd;
+    margin: 0; /* Reset margin for h2 if it's used as title */
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.left-panel-section .left-panel-section-title:hover {
+    background-color: #ced4da; /* Darker grey on hover */
+}
+
+.left-panel-section .left-panel-section-content {
+    padding: 10px;
+    display: flex; /* Use flex for content to fill space */
+    flex-direction: column;
+    flex-grow: 1; /* Allow content to grow */
+    overflow-y: auto; /* Add scroll if content overflows */
+    transition: opacity 0.3s ease-in-out, max-height 0.3s ease-in-out; /* Smooth transition */
+    opacity: 1;
+    max-height: 1000px; /* Arbitrary large max-height for transition */
+}
+
+.left-panel-section.collapsed-section .left-panel-section-content {
+    opacity: 0;
+    max-height: 0;
+    padding: 0; /* Remove padding when collapsed */
+    overflow: hidden; /* Hide content completely */
+}
+
+/* Base style for the section itself as a flex container for its title and content */
+.left-panel-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Important for smooth transitions of max-height within content */
+}
+
+/* Styles for the section when it's expanded (takes up space in parent flexbox) */
+.left-panel-section.expanded-section {
+    flex: 1 1 0%; /* Grow to fill, shrink if needed, basis 0 to rely on grow */
+}
+
+/* Styles for the section when it's collapsed (takes minimal space in parent flexbox) */
+.left-panel-section.collapsed-section {
+    flex: 0 0 auto; /* Don't grow, don't shrink, size based on title content */
+}
+/* End of Styles for dynamic left-panel sections */
 
 /* Item Search Results Container Styling */
 #item-search-section {
@@ -238,7 +289,7 @@ button {
 }
 
 button:hover {
-    background-color: #4cae4c;
+    background-color: #4cae4c; /* Default hover, might be overridden by .btn classes */
 }
 
 #item-search-results div {
@@ -1069,7 +1120,7 @@ button:hover {
     flex-direction: column;
     justify-content: space-between; /* Distribute space for two buttons */
     align-items: center;
-    padding-top: 6px
+    padding-top: 6px;
     gap: 8px; /* Space between buttons */
 }
 
@@ -1319,11 +1370,73 @@ header {
 /* Minimal base style for button elements, .btn class should be used for full styling */
 button {
     margin: 0; /* Remove default margins */
-    padding: 4px/* Remove default padding */
+    padding: 4px; /* Remove default padding */
     border: none; /* Remove default border */
-    background: var(--success-color); /* ove default background */
+    background: var(--success-color); /* Override default background */
     color: var(--text-on-success); /* Inherit text color */
     font: inherit; /* Inherit font */
     cursor: pointer; /* Ensure cursor is pointer */
     text-align: inherit; /* Inherit text-align */
 } 
+
+/*
+.item-search-result-rich, .parked-sale-entry, .quick-add-item {
+    transition: background-color 0.1s ease-in-out, border-color 0.1s ease-in-out;
+}
+
+.item-search-result-rich.selected, .parked-sale-entry.selected, .quick-add-item.selected {
+    background-color: #cce5ff; 
+    border-color: #007bff !important; 
+}
+*/
+
+/* ADDED Styles for dynamic left-panel sections */
+.left-panel-section .left-panel-section-title {
+    cursor: pointer;
+    padding: 10px;
+    background-color: #e9ecef; /* Light grey background for title */
+    border-bottom: 1px solid #ddd;
+    margin: 0; /* Reset margin for h2 if it's used as title */
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.left-panel-section .left-panel-section-title:hover {
+    background-color: #ced4da; /* Darker grey on hover */
+}
+
+.left-panel-section .left-panel-section-content {
+    padding: 10px;
+    display: flex; /* Use flex for content to fill space */
+    flex-direction: column;
+    flex-grow: 1; /* Allow content to grow */
+    overflow-y: auto; /* Add scroll if content overflows */
+    transition: opacity 0.3s ease-in-out, max-height 0.3s ease-in-out; /* Smooth transition */
+    opacity: 1;
+    max-height: 1000px; /* Arbitrary large max-height for transition */
+}
+
+.left-panel-section.collapsed-section .left-panel-section-content {
+    opacity: 0;
+    max-height: 0;
+    padding: 0; /* Remove padding when collapsed */
+    overflow: hidden; /* Hide content completely */
+}
+
+/* Base style for the section itself as a flex container for its title and content */
+.left-panel-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Important for smooth transitions of max-height within content */
+}
+
+/* Styles for the section when it's expanded (takes up space in parent flexbox) */
+.left-panel-section.expanded-section {
+    flex: 1 1 0%; /* Grow to fill, shrink if needed, basis 0 to rely on grow */
+}
+
+/* Styles for the section when it's collapsed (takes minimal space in parent flexbox) */
+.left-panel-section.collapsed-section {
+    flex: 0 0 auto; /* Don't grow, don't shrink, size based on title content */
+}
+/* End of ADDED Styles for dynamic left-panel sections */

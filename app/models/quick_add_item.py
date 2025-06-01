@@ -14,6 +14,8 @@ class QuickAddItem(db.Model):
     item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=True)
     item = db.relationship('Item', backref=db.backref('quick_add_references', lazy=True))
     
+    item_parent_id = db.Column(db.Integer, nullable=True) # Stores parent_id of the item, if applicable
+    
     target_page_number = db.Column(INTEGER(unsigned=True), nullable=True) # Target page if type is 'page_link'
     
     color = db.Column(db.String(7), nullable=True)  # Hex color code, e.g., #RRGGBB
@@ -60,6 +62,7 @@ class QuickAddItem(db.Model):
             'type': self.type,
             'label': self.label,
             'item_id': self.item_id,
+            'item_parent_id': self.item_parent_id,
             'target_page_number': self.target_page_number,
             'color': self.color,
             'item_sku': self.item.sku if self.item else None, 

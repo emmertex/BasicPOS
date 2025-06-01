@@ -10,40 +10,44 @@
     <div id="main-content-area" class="three-panel-layout">
         <aside id="left-panel">
             <div id="left-panel-expand-tag" style="display: none; cursor: pointer; padding: 5px; background-color: #ccc; text-align: center;">&gt;&gt;</div>
-            <section id="customer-management-section">
-                <h2>Customer Management</h2>
-                <!-- Basic Customer CRUD UI here later -->
-                <input type="text" id="customer-mgmt-search-input" placeholder="Search Customers by Name or Phone">
-                <button id="customer-mgmt-add-new-button">Add New Customer</button>
-                <div id="customer-mgmt-list">
-                    <!-- Customer list will be populated here -->
+            <section id="customer-management-section" class="left-panel-section expanded-section">
+                <h2 class="left-panel-section-title">Customer Management</h2>
+                <div class="left-panel-section-content">
+                    <!-- Basic Customer CRUD UI here later -->
+                    <input type="text" id="customer-mgmt-search-input" placeholder="Search Customers by Name or Phone">
+                    <button id="customer-mgmt-add-new-button">Add New Customer</button>
+                    <div id="customer-mgmt-list">
+                        <!-- Customer list will be populated here -->
+                    </div>
                 </div>
             </section>
             
-            <section id="all-sales-search-section">
-                <h2>Find Sales</h2>
-                <div>
-                    <label for="search-sale-id">Sale ID:</label>
-                    <input type="text" id="search-sale-id" placeholder="Enter Sale ID">
-                </div>
-                <div>
-                    <label for="search-sale-customer">Customer (Name/Phone):</label>
-                    <input type="text" id="search-sale-customer" placeholder="Enter Customer Name or Phone">
-                </div>
-                <div>
-                    <label for="search-sale-status">Status:</label>
-                    <select id="search-sale-status">
-                        <option value="">All Statuses</option>
-                        <option value="Open">Open</option>
-                        <option value="Quote">Quote</option>
-                        <option value="Invoice">Invoice</option>
-                        <option value="Paid">Paid</option>
-                        <option value="Void">Void</option>
-                    </select>
-                </div>
-                <button id="search-sales-button" class="btn btn-primary">Search Sales</button>
-                <div id="all-sales-search-results">
-                    <!-- Sales search results will be populated here -->
+            <section id="all-sales-search-section" class="left-panel-section collapsed-section">
+                <h2 class="left-panel-section-title">Find Sales</h2>
+                <div class="left-panel-section-content">
+                    <div>
+                        <label for="search-sale-id">Sale ID:</label>
+                        <input type="text" id="search-sale-id" placeholder="Enter Sale ID">
+                    </div>
+                    <div>
+                        <label for="search-sale-customer">Customer (Name/Phone):</label>
+                        <input type="text" id="search-sale-customer" placeholder="Enter Customer Name or Phone">
+                    </div>
+                    <div>
+                        <label for="search-sale-status">Status:</label>
+                        <select id="search-sale-status">
+                            <option value="">All Statuses</option>
+                            <option value="Open">Open</option>
+                            <option value="Quote">Quote</option>
+                            <option value="Invoice">Invoice</option>
+                            <option value="Paid">Paid</option>
+                            <option value="Void">Void</option>
+                        </select>
+                    </div>
+                    <button id="search-sales-button" class="btn btn-primary">Search Sales</button>
+                    <div id="all-sales-search-results">
+                        <!-- Sales search results will be populated here -->
+                    </div>
                 </div>
             </section>
         </aside>
@@ -91,10 +95,18 @@
                     </div>
                     <p>Remaining to be Paid: <span id="cart-amount-due">0.00</span></p>
                     <p>Status: <span id="cart-sale-status">No Active Sale</span></p>
+                    <div id="sale-notes-section" style="margin-top: 10px;">
+                        <label for="sale-customer-notes">Sale Notes (e.g., pickup/delivery):</label>
+                        <textarea id="sale-customer-notes" rows="3" style="width: 100%; box-sizing: border-box;"></textarea>
+                    </div>
                 </div>
                 <div>
                     <div id="customer-details-cart">
                         <!-- Selected customer details will appear here -->
+                    </div>
+                    <div id="purchase-order-section" style="margin-top: 5px; margin-bottom: 5px;">
+                        <label for="sale-po-number">PO Number:</label>
+                        <input type="text" id="sale-po-number" style="width: 100%; box-sizing: border-box;">
                     </div>
                 </div>
                 <div id="cart-action-buttons" style="margin-top: 10px; display: flex; flex-direction: column;">

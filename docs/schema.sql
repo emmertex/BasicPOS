@@ -1,3 +1,10 @@
+    SET FOREIGN_KEY_CHECKS = 0;
+    DROP TABLE IF EXISTS items;
+    DROP TABLE IF EXISTS categories;
+    DROP TABLE IF EXISTS photos;
+    -- Potentially drop 'photos' and other related tables if they exist
+
+
 -- Main Items Table
 CREATE TABLE Items (
     id INTEGER NOT NULL AUTO_INCREMENT,
@@ -6,12 +13,24 @@ CREATE TABLE Items (
     sku VARCHAR(255),
     stock_quantity INTEGER NOT NULL DEFAULT 0,
     is_stock_tracked BOOLEAN NOT NULL DEFAULT TRUE,
-    title VARCHAR(255) NOT NULL,
+    title VARCHAR(2048) NOT NULL,
     description TEXT,
     price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     show_on_website BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    PRIMARY KEY (id)
+    category_id INTEGER,
+    PRIMARY KEY (id),
+    FOREIGN KEY(category_id) REFERENCES Categories (id) ON DELETE SET NULL
+);
+
+-- Categories Table
+CREATE TABLE Categories (
+    id INTEGER NOT NULL AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    parent_id INTEGER,
+    PRIMARY KEY (id),
+    UNIQUE (name),
+    FOREIGN KEY(parent_id) REFERENCES Categories (id) ON DELETE SET NULL
 );
 
 -- Photos Table
@@ -23,6 +42,10 @@ CREATE TABLE Photos (
     PRIMARY KEY (id),
     FOREIGN KEY(item_id) REFERENCES Items (id) ON DELETE CASCADE
 );
+
+    SET FOREIGN_KEY_CHECKS = 1;
+
+
 
 -- Customers Table
 CREATE TABLE Customers (
@@ -81,6 +104,7 @@ CREATE TABLE quick_add_items (
     type VARCHAR(50) NOT NULL,
     label VARCHAR(100) NOT NULL,
     item_id INTEGER,
+    item_parent_id INTEGER,
     target_page_number INTEGER UNSIGNED,
     color VARCHAR(7),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

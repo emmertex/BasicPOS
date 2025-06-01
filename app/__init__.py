@@ -1,6 +1,7 @@
 from flask import Flask, send_from_directory, current_app
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_cors import CORS
 from config import Config
 import os
 
@@ -20,6 +21,9 @@ def create_app(config_class=Config):
                 static_folder=static_folder_path, 
                 template_folder=template_folder_path)
     app.config.from_object(config_class)
+    
+    # Enable CORS for all routes
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -53,8 +57,12 @@ def create_app(config_class=Config):
     # static_folder_path (e.g., frontend/static/css/style.css) at /static/css/style.css
     # No need for an explicit @app.route('/static/<path:filename>') if using default static handling.
 
+    # Example URL: http://localhost:5000/uploads/item_123_abc12345_myimage.jpg
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):
-        return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+        try:
+            return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
+        except FileNotFoundError:
+            return "File not found", 404
 
     return app 

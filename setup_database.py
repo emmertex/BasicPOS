@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""
+Database setup script for MariaDB server
+Connects to MariaDB, creates the database, and runs schema.sql
+"""
+
+import pymysql
+import os
+
+# Database connection settings
+DB_HOST = '10.2.100.35'
+DB_USER = 'root'
+DB_PASSWORD = 'password'
+DB_NAME = 'retail_pos_system'
+SCHEMA_FILE = 'docs/schema.sql'
+
+def create_database():
+    """Create the database if it doesn't exist"""
+    try:
+        # Connect without specifying database
+        connection = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            charset='utf8mb4'
+        )
+        
+        with connection.cursor() as cursor:
+            # Create database
+            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
+            print(f"✅ Database '{DB_NAME}' created successfully")
+            
+        connection.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error creating database: {e}")
+        return False
+
+def run_schema():
+    """Run the schema.sql file to create tables"""
+    try:
+        # Connect to the specific database
+        connection = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            charset='utf8mb4'
+        )
+        
+        # Read schema file
+        if not os.path.exists(SCHEMA_FILE):
+            print(f"❌ Schema file '{SCHEMA_FILE}' not found")
+            return False
+            
+        with open(SCHEMA_FILE, 'r') as file:
+            schema_sql = file.read()
+        
+        # Split and execute SQL statements
+        statements = [stmt.strip() for stmt in schema_sql.split(';') if stmt.strip()]
+        
+        with connection.cursor() as cursor:
+            for statement in statements:
+                if statement:
+                    try:
+                        cursor.execute(statement)
+                        print(f"✅ Executed: {statement[:50]}...")
+                    except Exception as e:
+                        print(f"⚠️  Warning executing statement: {e}")
+                        print(f"   Statement: {statement[:100]}...")
+            
+            connection.commit()
+            print(f"✅ Schema applied successfully to '{DB_NAME}'")
+        
+        connection.close()
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error running schema: {e}")
+        return False
+
+def test_connection():
+    """Test the database connection and show table count"""
+    try:
+        connection = pymysql.connect(
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME,
+            charset='utf8mb4'
+        )
+        
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW TABLES")
+            tables = cursor.fetchall()
+            print(f"✅ Connection successful! Found {len(tables)} tables:")
+            for table in tables:
+                print(f"   - {table[0]}")
+        
+        connection.close()
+        
+    except Exception as e:
+        print(f"❌ Connection test failed: {e}")
+
+if __name__ == "__main__":
+    print("🚀 Setting up MariaDB database...")
+    print(f"   Host: {DB_HOST}")
+    print(f"   Database: {DB_NAME}")
+    print()
+    
+    # Step 1: Create database
+    if create_database():
+        print()
+        
+        # Step 2: Run schema
+        if run_schema():
+            print()
+            
+            # Step 3: Test connection
+            test_connection()
+            print()
+            print("🎉 Database setup complete!")
+        else:
+            print("❌ Schema setup failed")
+    else:
+        print("❌ Database creation failed") 

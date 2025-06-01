@@ -11,6 +11,7 @@ class Sale(db.Model):
     updated_at = db.Column(db.TIMESTAMP, server_default=func.now(), onupdate=func.now())
     customer_notes = db.Column(db.Text, nullable=True)
     internal_notes = db.Column(db.Text, nullable=True)
+    purchase_order_number = db.Column(db.String(100), nullable=True)
 
     sale_items = db.relationship('SaleItem', backref='sale', lazy=True, cascade='all, delete-orphan')
     payments = db.relationship('Payment', backref='sale', lazy=True, cascade='all, delete-orphan')

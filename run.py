@@ -51,4 +51,10 @@ if __name__ == '__main__':
                 db.session.rollback()
                 print(f"Error seeding QuickAddItems: {e}")
 
-    app.run(debug=True) 
+    # Run the app with explicit host and port configuration
+    app.run(
+        host='0.0.0.0',  # Allow external connections
+        port=5000,       # Explicit port
+        debug=True,      # Enable debug mode
+        threaded=True    # Enable threading for better performance
+    ) 

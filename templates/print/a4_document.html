@@ -66,6 +66,9 @@
                 {% if sale.customer and sale.customer.id %}
                 <p><strong>Customer ID:</strong> {{ sale.customer.id }}</p>
                 {% endif %}
+                {% if sale.po_number %}
+                <p><strong>PO Number:</strong> {{ sale.po_number }}</p>
+                {% endif %}
             </div>
         </header>
 
@@ -165,6 +168,13 @@
         <section class="notes-section">
             <h3>Customer Notes:</h3>
             <p>{{ sale.customer_notes | nl2br }}</p>
+        </section>
+        {% endif %}
+
+        {% if sale.sales_notes %}
+        <section class="notes-section">
+            <h3>Sales Notes:</h3>
+            <p>{{ sale.sales_notes | nl2br }}</p>
         </section>
         {% endif %}
 

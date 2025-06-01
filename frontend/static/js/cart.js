@@ -20,12 +20,68 @@ const cartActionButtonsDiv = document.getElementById('cart-action-buttons');
 const customerDetailsCartDiv = document.getElementById('customer-details-cart');
 const cartPaymentDetailsDiv = document.getElementById('cart-payment-details');
 const cartAmountDueSpan = document.getElementById('cart-amount-due');
+const saleCustomerNotesTextarea = document.getElementById('sale-customer-notes');
+const salePoNumberInput = document.getElementById('sale-po-number');
+
+// Debounce function
+function debounce(func, delay) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), delay);
+    };
+}
+
+async function saveSaleCustomerNotes() {
+    if (state.currentSale && state.currentSale.id && saleCustomerNotesTextarea) {
+        const notes = saleCustomerNotesTextarea.value;
+        if (state.currentSale.customer_notes !== notes) {
+            const updatedSale = await apiCall(`/sales/${state.currentSale.id}`, 'PUT', { customer_notes: notes });
+            if (updatedSale) {
+                state.currentSale.customer_notes = updatedSale.customer_notes;
+                // state.currentSale.purchase_order_number = updatedSale.purchase_order_number; // Ensure PO is also updated in state if returned
+                showToast("Sale notes updated.", "success");
+            } else {
+                showToast("Failed to update sale notes.", "error");
+                saleCustomerNotesTextarea.value = state.currentSale.customer_notes || '';
+            }
+        }
+    }
+}
+
+const debouncedSaveSaleCustomerNotes = debounce(saveSaleCustomerNotes, 1000);
+
+async function saveSalePoNumber() {
+    if (state.currentSale && state.currentSale.id && salePoNumberInput) {
+        const poNumber = salePoNumberInput.value;
+        if (state.currentSale.purchase_order_number !== poNumber) {
+            const updatedSale = await apiCall(`/sales/${state.currentSale.id}`, 'PUT', { purchase_order_number: poNumber });
+            if (updatedSale) {
+                state.currentSale.purchase_order_number = updatedSale.purchase_order_number;
+                // state.currentSale.customer_notes = updatedSale.customer_notes; // Ensure notes are also updated in state if returned
+                showToast("Sale PO Number updated.", "success");
+            } else {
+                showToast("Failed to update PO Number.", "error");
+                salePoNumberInput.value = state.currentSale.purchase_order_number || '';
+            }
+        }
+    }
+}
+
+const debouncedSaveSalePoNumber = debounce(saveSalePoNumber, 1000);
 
 // Cart Management
-export async function createNewSale(status = 'Open', customerId = null) {
+export async function createNewSale(status = 'Open', customerId = null, customerNotes = null, poNumber = null) {
     const payload = { status: status };
     if (customerId) {
         payload.customer_id = customerId;
+    }
+    if (customerNotes !== null) {
+        payload.customer_notes = customerNotes;
+    }
+    if (poNumber !== null) {
+        payload.purchase_order_number = poNumber;
     }
     const sale = await apiCall('/sales/', 'POST', payload);
     if (sale) {
@@ -39,13 +95,18 @@ export async function createNewSale(status = 'Open', customerId = null) {
 export async function addItemToCart(itemId, price) {
     console.log("[cart.js] addItemToCart called with itemId:", itemId, "and price:", price);
     console.log("Attempting to add item to cart:", itemId);
+    let saleCreatedInThisCall = false;
     if (!state.currentSale || (state.currentSale.status !== 'Open' && state.currentSale.status !== 'Quote')) {
         console.log("No active 'Open' or 'Quote' sale, creating a new one.");
-        const newSale = await createNewSale('Open', state.currentCustomer ? state.currentCustomer.id : null);
+        const notesForNewSale = saleCustomerNotesTextarea ? saleCustomerNotesTextarea.value : null;
+        const poForNewSale = salePoNumberInput ? salePoNumberInput.value : null;
+        
+        const newSale = await createNewSale('Open', state.currentCustomer ? state.currentCustomer.id : null, notesForNewSale, poForNewSale);
         if (!newSale) {
             showToast("Failed to create a new sale to add item.", "error");
             return;
         }
+        saleCreatedInThisCall = true; // Flag that a new sale was made
     }
 
     if (!state.currentSale || !state.currentSale.id) {
@@ -122,9 +183,23 @@ export function updateCartCustomerDisplay(customer) {
 }
 
 export function updateCartDisplay() {
-    if (!cartItemsDiv || !cartTotalSpan || !cartSaleStatusSpan || !cartActionButtonsDiv || !customerDetailsCartDiv || !cartPaymentDetailsDiv || !cartAmountDueSpan) {
+    if (!cartItemsDiv || !cartTotalSpan || !cartSaleStatusSpan || !cartActionButtonsDiv || !customerDetailsCartDiv || !cartPaymentDetailsDiv || !cartAmountDueSpan || !saleCustomerNotesTextarea || !salePoNumberInput) {
         console.warn("updateCartDisplay: One or more cart UI elements not found. Cart display might be incomplete.");
         // Do not return, try to update what we can
+    }
+
+    // Remove existing blur listener to prevent multiple listeners
+    if (saleCustomerNotesTextarea && saleCustomerNotesTextarea._blurListener) {
+        saleCustomerNotesTextarea.removeEventListener('blur', saleCustomerNotesTextarea._blurListener);
+        saleCustomerNotesTextarea.removeEventListener('input', saleCustomerNotesTextarea._inputListener);
+        delete saleCustomerNotesTextarea._blurListener;
+        delete saleCustomerNotesTextarea._inputListener;
+    }
+    if (salePoNumberInput && salePoNumberInput._blurListener) {
+        salePoNumberInput.removeEventListener('blur', salePoNumberInput._blurListener);
+        salePoNumberInput.removeEventListener('input', salePoNumberInput._inputListener);
+        delete salePoNumberInput._blurListener;
+        delete salePoNumberInput._inputListener;
     }
 
     if (cartItemsDiv) cartItemsDiv.innerHTML = ''; // Clear previous items
@@ -134,6 +209,23 @@ export function updateCartDisplay() {
         if (cartTotalSpan) cartTotalSpan.textContent = state.currentSale.sale_total !== null && state.currentSale.sale_total !== undefined ? state.currentSale.sale_total.toFixed(2) : '0.00';
         if (cartSaleStatusSpan) cartSaleStatusSpan.textContent = `${state.currentSale.status} (ID: ${state.currentSale.id})`;
         if (cartAmountDueSpan) cartAmountDueSpan.textContent = state.currentSale.amount_due !== null && state.currentSale.amount_due !== undefined ? state.currentSale.amount_due.toFixed(2) : '0.00';
+        if (saleCustomerNotesTextarea) {
+            saleCustomerNotesTextarea.value = state.currentSale.customer_notes || '';
+            saleCustomerNotesTextarea.disabled = false;
+            // Add new blur and input listeners
+            saleCustomerNotesTextarea._blurListener = saveSaleCustomerNotes; // Persist immediately on blur
+            saleCustomerNotesTextarea._inputListener = debouncedSaveSaleCustomerNotes; // Debounced save on input
+            saleCustomerNotesTextarea.addEventListener('blur', saleCustomerNotesTextarea._blurListener);
+            saleCustomerNotesTextarea.addEventListener('input', saleCustomerNotesTextarea._inputListener);
+        }
+        if (salePoNumberInput) {
+            salePoNumberInput.value = state.currentSale.purchase_order_number || '';
+            salePoNumberInput.disabled = false;
+            salePoNumberInput._blurListener = saveSalePoNumber;
+            salePoNumberInput._inputListener = debouncedSaveSalePoNumber;
+            salePoNumberInput.addEventListener('blur', salePoNumberInput._blurListener);
+            salePoNumberInput.addEventListener('input', salePoNumberInput._inputListener);
+        }
 
         // Display Payment Details
         if (cartPaymentDetailsDiv && state.currentSale.payments && state.currentSale.payments.length > 0) {
@@ -250,6 +342,14 @@ export function updateCartDisplay() {
         if (cartAmountDueSpan) cartAmountDueSpan.textContent = '0.00'; // Reset amount due
         if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = ''; // Clear payment details
         if (cartActionButtonsDiv) cartActionButtonsDiv.style.display = 'none';
+        if (saleCustomerNotesTextarea) {
+            saleCustomerNotesTextarea.value = ''; // Clear notes
+            saleCustomerNotesTextarea.disabled = true; // Disable if no active sale
+        }
+        if (salePoNumberInput) {
+            salePoNumberInput.value = '';
+            salePoNumberInput.disabled = true;
+        }
         cartItemsDiv.innerHTML = '<p>No active sale. Add an item or load a parked sale.</p>';
         expandParkedSales(); 
         expandLeftPanel(); 

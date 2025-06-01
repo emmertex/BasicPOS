@@ -21,7 +21,8 @@ class SaleService:
                 customer_id=customer_id,
                 status=data.get('status', 'Open'), # Default to 'Open', can be 'Quote'
                 customer_notes=data.get('customer_notes'),
-                internal_notes=data.get('internal_notes')
+                internal_notes=data.get('internal_notes'),
+                purchase_order_number=data.get('purchase_order_number') # Added PO Number
             )
             db.session.add(new_sale)
             db.session.commit()
@@ -349,6 +350,8 @@ class SaleService:
                 sale.customer_notes = data['customer_notes']
             if 'internal_notes' in data:
                 sale.internal_notes = data['internal_notes']
+            if 'purchase_order_number' in data:
+                sale.purchase_order_number = data['purchase_order_number']
             
             # Add other updatable fields as needed
 

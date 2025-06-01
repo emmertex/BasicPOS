@@ -56,6 +56,9 @@
             <h1>{{ document_title | upper }}</h1>
             <p>{{ document_title }} #: {{ sale.id }}</p>
             <p>Date: {{ generation_date_time }}</p> {# More precise for receipt #}
+            {% if sale.po_number %}
+            <p>PO Number: {{ sale.po_number }}</p>
+            {% endif %}
         </section>
         
         {% if sale.customer %}
@@ -142,6 +145,13 @@
         <hr class="separator">
         <section class="notes-section">
             <p><strong>Notes:</strong> {{ sale.customer_notes }}</p>
+        </section>
+        {% endif %}
+
+        {% if sale.sales_notes %}
+        <hr class="separator">
+        <section class="notes-section">
+            <p><strong>Sales Notes:</strong> {{ sale.sales_notes }}</p>
         </section>
         {% endif %}
 

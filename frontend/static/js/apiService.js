@@ -1,7 +1,8 @@
 import { showToast } from './toastService.js';
 
 // --- API Base URL ---
-export const API_BASE_URL = 'http://127.0.0.1:5000/api';
+// Use the current host instead of hardcoding localhost
+export const API_BASE_URL = `${window.location.protocol}//${window.location.host}/api`;
 
 // --- Helper Functions ---
 export async function apiCall(endpoint, method = 'GET', body = null, queryParams = null) {

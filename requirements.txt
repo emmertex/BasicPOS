@@ -1,4 +1,7 @@
 Flask
 Flask-SQLAlchemy
-pymysql
-Pillow 
+Flask-Migrate
+Flask-CORS
+Pymysql
+Pillow
+requests 

@@ -202,7 +202,16 @@ export async function searchItems() {
             }
 
             itemDiv.addEventListener('click', () => {
-                if (item.parent_id === -2) {
+                // Visual feedback for selection
+                const currentlySelected = itemSearchResultsDiv.querySelector('.item-search-result-rich.selected');
+                if (currentlySelected) {
+                    currentlySelected.classList.remove('selected');
+                }
+                itemDiv.classList.add('selected');
+                // Remove selection after a short delay or after action
+                // For now, let it persist until next search or different selection
+
+                if (item.parent_id === -2) { // Is a parent item
                     openVariantSelectionModal(item);
                 } else if (item.price !== null && item.price !== undefined) {
                     addItemToCart(item.id, item.price);
@@ -572,6 +581,32 @@ export function setupItemImageDropZone() {
                 displaySelectedFileNames(itemImagesUploadInput.files); // Call helper
             }
         });
+    }
+}
+
+export async function handleItemClick(itemId, itemTitle, itemPrice, itemSku, parentId) {
+    // This function is called from app.js for quick-add parent items.
+    // It needs to construct a 'parentItem' object similar to what openVariantSelectionModal expects.
+    if (parentId === -2) {
+        const parentItem = {
+            id: itemId,
+            title: itemTitle,
+            price: itemPrice, // May be null or 0 for parent items
+            sku: itemSku,
+            // Variants are not passed here, openVariantSelectionModal will fetch them if needed
+            // or use cached ones based on its own logic using parentItem.id
+        };
+        await openVariantSelectionModal(parentItem);
+    } else {
+        // This case should ideally be handled by the caller in app.js (direct addItemToCart)
+        // but as a fallback, if it's not a parent, try to add to cart if price is valid.
+        if (itemPrice !== null && itemPrice !== undefined) {
+            addItemToCart(itemId, itemPrice);
+            showToast(`${itemTitle} added to cart.`, 'success');
+        } else {
+            showToast(`Price missing for ${itemTitle}. Cannot add to cart or open variants.`, 'error');
+            console.error('handleItemClick called for non-parent item without price:', { itemId, itemTitle, itemPrice, itemSku, parentId });
+        }
     }
 }
 

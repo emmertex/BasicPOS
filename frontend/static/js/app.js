@@ -9,7 +9,7 @@ import {
     updateCartCustomerDisplay, 
     updateCartDisplay, 
     handleUpdateCartItemQuantity,
-    handleRemoveItemFromCart
+    handleRemoveItemFromCart,
 } from './cart.js';
 import {
     shrinkLeftPanel,
@@ -19,7 +19,8 @@ import {
     expandItemSearchResults,
     collapseItemSearchResults,
     collapseQuickAddDashboard,
-    expandQuickAddDashboard
+    expandQuickAddDashboard,
+    toggleLeftPanelSection
 } from './panelUtils.js';
 import {
     initCustomerService,
@@ -45,6 +46,7 @@ import {
     handleDeleteImage as serviceHandleDeleteImage,
     displaySelectedFileNames as serviceDisplaySelectedFileNames,
     handleManageVariantsClick as serviceHandleManageVariantsClick,
+    handleItemClick as serviceHandleItemClick
 } from './itemService.js';
 
 
@@ -55,6 +57,19 @@ document.addEventListener('DOMContentLoaded', () => {
     initItemService();
 
     console.log("Item Service Initialized");
+
+    // Left Panel Sections for dynamic sizing
+    const customerManagementSection = document.getElementById('customer-management-section');
+    const allSalesSearchSection = document.getElementById('all-sales-search-section');
+    const customerManagementTitle = customerManagementSection?.querySelector('.left-panel-section-title');
+    const allSalesSearchTitle = allSalesSearchSection?.querySelector('.left-panel-section-title');
+
+    // DEBUGGING LOGS START
+    console.log('DEBUG: customerManagementSection:', customerManagementSection);
+    console.log('DEBUG: allSalesSearchSection:', allSalesSearchSection);
+    console.log('DEBUG: customerManagementTitle:', customerManagementTitle);
+    console.log('DEBUG: allSalesSearchTitle:', allSalesSearchTitle);
+    // DEBUGGING LOGS END
 
     // --- UI Element Selectors (Reduced set for app.js) ---
     const itemSearchButton = document.getElementById('item-search-button');
@@ -152,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const printQuoteA4Btn = document.getElementById('print-quote-a4-btn');
     const printQuoteReceiptBtn = document.getElementById('print-quote-receipt-btn');
 
-
     // --- Initial Load Functions ---
     async function loadParkedSales() {
         parkedSalesListDiv.innerHTML = '<p>Loading parked sales...</p>';
@@ -162,12 +176,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sales && sales.length > 0) {
             sales.forEach(sale => {
                 const saleDiv = document.createElement('div');
+                saleDiv.className = 'parked-sale-entry'; // Add a class for styling and selection
                 const totalDisplay = sale.sale_total !== undefined && sale.sale_total !== null ? sale.sale_total.toFixed(2) : '0.00';
                 saleDiv.innerHTML = `Sale ID: ${sale.id} - Customer: ${sale.customer ? sale.customer.name : 'N/A'} - Total: ${totalDisplay}`;
                 saleDiv.style.cursor = 'pointer';
                 saleDiv.style.padding = '5px';
                 saleDiv.style.borderBottom = '1px solid #eee';
-                saleDiv.onclick = () => loadSaleIntoCart(sale.id);
+                saleDiv.onclick = () => {
+                    // Visual feedback for selection
+                    const currentlySelected = parkedSalesListDiv.querySelector('.parked-sale-entry.selected');
+                    if (currentlySelected) {
+                        currentlySelected.classList.remove('selected');
+                    }
+                    saleDiv.classList.add('selected');
+                    
+                    loadSaleIntoCart(sale.id);
+                };
                 parkedSalesListDiv.appendChild(saleDiv);
             });
         } else {
@@ -532,12 +556,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const itemClickHandler = () => {
             if (qItem.type === 'item') {
-                if (qItem.item_id && qItem.item_price !== null && qItem.item_price !== undefined) {
-                    addItemToCart(qItem.item_id, qItem.item_price);
-                    showToast(`${qItem.label} added to cart.`, 'success');
+                if (qItem.item_id) {
+                    if (qItem.item_parent_id === -2) {
+                        // It's a parent item, trigger variant selection
+                        // serviceHandleItemClick expects: itemId, itemTitle, itemPrice, itemSku, parentId
+                        // For a parent item, price might be 0 or null. Pass it as is.
+                        // The itemTitle is qItem.label. itemSku is qItem.item_sku
+                        serviceHandleItemClick(qItem.item_id, qItem.label, qItem.item_price, qItem.item_sku, qItem.item_parent_id);
+                    } else {
+                        // Not a parent, or simple item. Add directly to cart.
+                        // Ensure price is valid before adding to cart.
+                        if (qItem.item_price !== null && qItem.item_price !== undefined) {
+                            addItemToCart(qItem.item_id, qItem.item_price); // Corrected: only itemId and price
+                            showToast(`${qItem.label} added to cart.`, 'success');
+                        } else {
+                            console.error('Quick add item is missing price:', qItem);
+                            showToast(`Price missing for ${qItem.label}. Cannot add to cart.`, 'error');
+                        }
+                    }
                 } else {
-                    console.error('Quick add item is missing price or ID:', qItem);
-                    showToast(`Data missing for ${qItem.label}. Cannot add.`, 'error');
+                    console.error('Quick add item is missing item_id:', qItem);
+                    showToast(`Data missing for ${qItem.label}. Cannot process.`, 'error');
                 }
             } else if (qItem.type === 'page_link') {
                 if (qItem.target_page_number) {
@@ -640,7 +679,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     itemDiv.textContent = `${item.title} (SKU: ${item.sku}) - Price: ${item.price !== null ? item.price.toFixed(2) : 'N/A'}`;
                     itemDiv.dataset.itemId = item.id;
                     itemDiv.dataset.itemTitle = item.title;
-                    itemDiv.dataset.itemPrice = item.price; // Store price for adding to QAI
+                    itemDiv.dataset.itemPrice = item.price; // Store price
+                    itemDiv.dataset.itemParentId = item.parent_id; // Store parent_id
                     
                     // Add click listener to select the item
                     itemDiv.addEventListener('click', () => {
@@ -665,14 +705,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Modified to accept parameters and contain the logic for adding a QAI item
-    async function handleAddQuickAddItem(itemId, itemTitle, itemPrice) { 
-        if (itemPrice === null || itemPrice === undefined || itemPrice === "null" || itemPrice === "undefined") {
+    async function handleAddQuickAddItem(itemId, itemTitle, itemPrice, itemParentId) { 
+        // If it's a parent item (parent_id == -2), price might be irrelevant or 0.
+        // The original price check might be too strict for parent items.
+        // For now, we'll keep the check but acknowledge it might need refinement if parent items legitimately have null/0 price.
+        if (itemParentId !== '-2' && (itemPrice === null || itemPrice === undefined || itemPrice === "null" || itemPrice === "undefined")) {
             showToast('Selected item does not have a valid price. Cannot add to Quick Add.', 'error');
             return;
         }
-        // Ensure itemPrice is a number if it comes from dataset as string
+        
         const numericItemPrice = parseFloat(itemPrice);
-        if (isNaN(numericItemPrice)) {
+        if (itemParentId !== '-2' && isNaN(numericItemPrice)) {
              showToast('Selected item price is not a valid number. Cannot add to Quick Add.', 'error');
             return;
         }
@@ -682,6 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             type: 'item',
             label: itemTitle.substring(0, 50), // Max label length
             item_id: itemId,
+            item_parent_id: itemParentId ? parseInt(itemParentId, 10) : null, // Add item_parent_id
             color: '#B4F8C8' // Default color for new items
         };
         const result = await apiCall('/quick_add_items/', 'POST', newQaiData);
@@ -1103,6 +1147,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Panels
     if (leftPanelExpandTag) leftPanelExpandTag.addEventListener('click', expandLeftPanel);
     
+    // Dynamic Left Panel Sections
+    if (customerManagementTitle && customerManagementSection && allSalesSearchSection) {
+        customerManagementTitle.addEventListener('click', () => {
+            toggleLeftPanelSection(customerManagementSection, allSalesSearchSection);
+        });
+    }
+    if (allSalesSearchTitle && allSalesSearchSection && customerManagementSection) {
+        allSalesSearchTitle.addEventListener('click', () => {
+            toggleLeftPanelSection(allSalesSearchSection, customerManagementSection);
+        });
+    }
+
     // Cart Actions
     if (parkSaleButton) parkSaleButton.addEventListener('click', parkCurrentSale);
     if (setQuoteStatusButton) setQuoteStatusButton.addEventListener('click', handleSetQuoteStatus);
@@ -1283,7 +1339,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const itemId = selectedItemDiv.dataset.itemId;
                 const itemTitle = selectedItemDiv.dataset.itemTitle;
                 const itemPrice = selectedItemDiv.dataset.itemPrice;
-                await handleAddQuickAddItem(itemId, itemTitle, itemPrice);
+                const itemParentId = selectedItemDiv.dataset.itemParentId; // Get parentId
+                await handleAddQuickAddItem(itemId, itemTitle, itemPrice, itemParentId); // Pass parentId
             } else {
                 showToast("No item selected to add to Quick Add.", "warning");
             }
