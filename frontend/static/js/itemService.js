@@ -267,15 +267,47 @@ export async function openVariantSelectionModal(parentItem) {
         variants.forEach(variant => {
             const variantDiv = document.createElement('div');
             variantDiv.className = 'variant-item';
-            variantDiv.innerHTML = `
+            
+            const variantInfo = document.createElement('div');
+            variantInfo.className = 'variant-item-info';
+            variantInfo.innerHTML = `
                 <strong>${variant.title}</strong> (SKU: ${variant.sku}) - $${variant.price ? variant.price.toFixed(2) : 'N/A'}<br>
                 Stock: ${variant.is_stock_tracked ? variant.stock_quantity : 'Not Tracked'}
-                <button class="add-variant-to-cart-btn" data-variant-id="${variant.id}" data-variant-price="${variant.price}">Add to Cart</button>
             `;
-            variantDiv.querySelector('.add-variant-to-cart-btn').addEventListener('click', () => {
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'variant-item-buttons';
+            
+            const addToCartBtn = document.createElement('button');
+            addToCartBtn.className = 'add-variant-to-cart-btn';
+            addToCartBtn.textContent = 'Add to Cart';
+            addToCartBtn.addEventListener('click', () => {
                 addItemToCart(variant.id, variant.price);
                 closeVariantSelectionModal();
             });
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'edit-variant-btn';
+            editBtn.textContent = 'Edit';
+            editBtn.addEventListener('click', () => {
+                openEditItemForm(variant.id);
+                closeVariantSelectionModal();
+            });
+            
+            const printLabelBtn = document.createElement('button');
+            printLabelBtn.className = 'print-label-btn';
+            printLabelBtn.textContent = 'Print Label';
+            printLabelBtn.addEventListener('click', () => {
+                window.open(`/print/label/${variant.id}`, '_blank');
+                showToast(`Opening label print page for ${variant.title}...`, 'info');
+            });
+            
+            buttonContainer.appendChild(addToCartBtn);
+            buttonContainer.appendChild(editBtn);
+            buttonContainer.appendChild(printLabelBtn);
+            
+            variantDiv.appendChild(variantInfo);
+            variantDiv.appendChild(buttonContainer);
             variantListContainer.appendChild(variantDiv);
         });
     } else if (variants) {

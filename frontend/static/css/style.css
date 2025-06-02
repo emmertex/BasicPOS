@@ -46,6 +46,7 @@ body {
     display: flex; /* Make body a flex container */
     flex-direction: column; /* Stack header and main content vertically */
     min-height: 100vh; /* Ensure body takes at least full viewport height */
+    height: 810px;
 }
 
 header {
@@ -495,7 +496,7 @@ button:hover {
 
 /* Variant Selection Modal Styles */
 #variant-list-container {
-    max-height: 300px; /* Or any suitable height */
+    max-height: 450px; /* Increased from 300px to 450px (1.5x) */
     overflow-y: auto;
     margin-top: 15px;
 }
@@ -507,24 +508,52 @@ button:hover {
     border-radius: 4px;
     background-color: #fdfdfd;
     line-height: 1.6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.variant-item strong {
-    font-size: 1.05em;
+.variant-item-info {
+    flex-grow: 1;
 }
 
-.variant-item button.add-variant-to-cart-btn {
-    float: right;
+.variant-item-buttons {
+    display: flex;
+    gap: 8px;
+    margin-left: 10px;
+}
+
+.variant-item button {
     padding: 5px 10px;
     font-size: 0.9em;
-    background-color: #5cb85c; /* Green, like other add buttons */
     color: white;
     border: none;
     cursor: pointer;
+    border-radius: 3px;
+}
+
+.variant-item button.add-variant-to-cart-btn {
+    background-color: #5cb85c;
+}
+
+.variant-item button.edit-variant-btn {
+    background-color: #337ab7;
+}
+
+.variant-item button.print-label-btn {
+    background-color: #f0ad4e;
 }
 
 .variant-item button.add-variant-to-cart-btn:hover {
     background-color: #4cae4c;
+}
+
+.variant-item button.edit-variant-btn:hover {
+    background-color: #286090;
+}
+
+.variant-item button.print-label-btn:hover {
+    background-color: #ec971f;
 }
 
 /* Item Image Display Styles */

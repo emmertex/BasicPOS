@@ -197,12 +197,16 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
             currentSearchTerm = searchTerm.target.value.toLowerCase();
         }
 
+        // Sort customers alphabetically by name
+        customersData.sort((a, b) => a.name.localeCompare(b.name));
 
         customersData
             .filter(customer => {
                 if (!currentSearchTerm) return true;
                 return customer.name.toLowerCase().includes(currentSearchTerm) ||
-                       (customer.phone && customer.phone.toLowerCase().includes(currentSearchTerm));
+                       (customer.phone && customer.phone.toLowerCase().includes(currentSearchTerm)) ||
+                       (customer.email && customer.email.toLowerCase().includes(currentSearchTerm)) ||
+                       (customer.company_name && customer.company_name.toLowerCase().includes(currentSearchTerm));
             })
             .forEach(customer => {
                 const custDiv = document.createElement('div');
@@ -216,7 +220,7 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
                     </div>
                     <div style="margin-top: 5px; display: flex; gap: 5px;">
                         <button class="edit-customer-btn btn btn-warning" data-customer-id="${customer.id}">Edit</button>
-                        <button class="select-customer-for-sale-btn btn btn-primary" data-customer-id="${customer.id}">Select for Sale</button>
+                        <button class="select-customer-for-sale-btn btn btn-primary" data-customer-id="${customer.id}">Select</button>
                     </div>
                 `;
                 custDiv.querySelector('.edit-customer-btn').addEventListener('click', () => openEditCustomerModal(customer.id));

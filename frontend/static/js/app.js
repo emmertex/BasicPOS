@@ -308,22 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Payment of $${amount.toFixed(2)} via ${paymentType} recorded successfully.`, "success");
             updateCartDisplay(); 
             closePaymentModal();
-            if (state.currentSale.status === 'Paid') {
-                console.log(`[${callId}] Sale is now PAID. Setting timeout to clear cart.`);
-                showToast(`Sale ${state.currentSale.id} is now fully Paid. Clearing cart.`, "info");
-                setTimeout(() => {
-                    console.log(`[${callId}] Timeout: Clearing cart for sale ID ${state.currentSale ? state.currentSale.id : 'N/A'} which was PAID.`);
-                    if (state.currentSale && state.currentSale.status === 'Paid' && paymentResult.id === state.currentSale.id) { 
-                        state.currentSale = null; 
-                        state.currentCustomer = null;
-                        updateCartDisplay(); 
-                        loadParkedSales(); 
-                        console.log(`[${callId}] Timeout: Cart cleared and parked sales reloaded.`);
-                    } else {
-                         console.log(`[${callId}] Timeout: Cart not cleared. state.currentSale status: ${state.currentSale ? state.currentSale.status : 'N/A'} or state.currentSale is null, or ID mismatch.`);
-                    }
-                }, 1500);
-            }
+            // Open print options modal after successful payment
+            openPrintOptionsModal(state.currentSale.id);
         } else {
             showToast("Failed to record payment or received invalid response.", "error");
             console.log(`[${callId}] Payment recording failed or invalid response. paymentResult:`, paymentResult);
@@ -334,10 +320,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentSale && state.currentSale.id) {
             let saleToParkStatus = state.currentSale.status;
             if (saleToParkStatus !== 'Open' && saleToParkStatus !== 'Quote' && saleToParkStatus !== 'Invoice') {
-                showToast(`Sale is ${saleToParkStatus}. Cannot be parked.`, 'warning');
-                return;
+                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
+            } else {
+                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
             }
-            showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
             state.currentSale = null;
             state.currentCustomer = null; 
             updateCartDisplay(); 
@@ -362,6 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Sale ${state.currentSale.id} is now a Quote.`, 'success');
             updateCartDisplay();
             loadParkedSales();
+            // Open print options modal after setting as quote
+            openPrintOptionsModal(state.currentSale.id);
         } else {
             showToast("Failed to update sale to Quote status.", 'error');
         }
@@ -369,38 +357,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleVoidSale() {
         if (!state.currentSale || !state.currentSale.id) {
-            showToast("No active sale to void.", 'warning');
+            showToast("No active sale to clear.", 'warning');
             return;
         }
 
-        if (state.currentSale.status === 'Paid' || state.currentSale.status === 'Void') {
-            showToast(`Sale is already ${state.currentSale.status}. Cannot void.`, 'info');
-            return;
-        }
+        const saleIdToPotentiallyVoid = state.currentSale.id;
+        const originalStatus = state.currentSale.status;
 
-        // Optional: Add a confirmation dialog in a real application
-        // const confirmed = confirm(`Are you sure you want to void sale ${state.currentSale.id}? This action cannot be undone.`);
-        // if (!confirmed) return;
+        // --- Primary Action: Clear the local cart immediately --- 
+        state.currentSale = null;
+        state.currentCustomer = null;
+        updateCartDisplay();
+        showToast("Cart has been cleared.", 'info');
+        console.log(`Local cart cleared. Sale ID was: ${saleIdToPotentiallyVoid}, Original status: ${originalStatus}.`);
+        // --- End of Primary Action ---
 
-        const updatedSale = await apiCall(`/sales/${state.currentSale.id}/status`, 'PUT', { status: 'Void' });
-        if (updatedSale && updatedSale.id) {
-            state.currentSale = updatedSale; // Keep it in state to show it's voided
-            showToast(`Sale ${state.currentSale.id} has been voided.`, 'success');
-            updateCartDisplay(); // Update display to reflect void status
-            loadParkedSales();   // Refresh parked sales list
-
-            // Optionally, clear after a delay
-            setTimeout(() => {
-                if (state.currentSale && state.currentSale.id === updatedSale.id && state.currentSale.status === 'Void') {
-                    state.currentSale = null;
-                    state.currentCustomer = null;
-                    updateCartDisplay();
-                    console.log(`Cleared voided sale ${updatedSale.id} from active cart view.`);
+        // --- Secondary Action: Attempt backend void if applicable ---
+        if (originalStatus !== 'Void') {
+            try {
+                console.log(`Attempting to set sale ${saleIdToPotentiallyVoid} to Void on backend. Original status: ${originalStatus}`);
+                const updatedSale = await apiCall(`/sales/${saleIdToPotentiallyVoid}/status`, 'PUT', { status: 'Void' });
+                if (updatedSale && updatedSale.id) {
+                    showToast(`Sale ${updatedSale.id} status updated to Void on server.`, 'success');
+                } else {
+                    showToast(`Failed to confirm sale ${saleIdToPotentiallyVoid} status update on server. Please check server logs.`, 'warning');
                 }
-            }, 2000);
-        } else {
-            showToast("Failed to void sale.", 'error');
+            } catch (error) {
+                showToast(`Error trying to void sale ${saleIdToPotentiallyVoid} on server: ${error.message}`, 'error');
+                console.error("Error during backend void POST operation:", error);
+            }
         }
+        // --- End of Secondary Action ---
+        
+        // Always refresh parked sales list to reflect any potential status changes or ensure consistency
+        loadParkedSales();
     }
 
     async function searchAllSales() {
@@ -1148,16 +1138,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leftPanelExpandTag) leftPanelExpandTag.addEventListener('click', expandLeftPanel);
     
     // Dynamic Left Panel Sections
-    if (customerManagementTitle && customerManagementSection && allSalesSearchSection) {
-        customerManagementTitle.addEventListener('click', () => {
-            toggleLeftPanelSection(customerManagementSection, allSalesSearchSection);
+    const leftPanelTitles = document.querySelectorAll('.left-panel-section-title');
+    
+    // Initialize sections
+    leftPanelTitles.forEach(title => {
+        const section = title.nextElementSibling;
+        if (section) {
+            // Set initial state - Sales History section should be visible by default
+            const isSalesHistory = title.textContent.includes('Find Sales');
+            const isCurrentlyVisible = isSalesHistory ? true : !section.classList.contains('collapsed-section');
+            
+            // Update classes and display
+            if (isCurrentlyVisible) {
+                section.classList.remove('collapsed-section');
+                section.classList.add('expanded-section');
+                section.style.display = 'block';
+            } else {
+                section.classList.add('collapsed-section');
+                section.classList.remove('expanded-section');
+                section.style.display = 'none';
+            }
+            
+            section.setAttribute('data-expanded', isCurrentlyVisible.toString());
+            
+            // Add expand icon if it doesn't exist
+            if (!title.querySelector('.expand-icon')) {
+                const expandIcon = document.createElement('span');
+                expandIcon.className = 'expand-icon';
+                expandIcon.textContent = isCurrentlyVisible ? '▲' : '▼';
+                title.insertBefore(expandIcon, title.firstChild);
+            }
+        }
+    });
+    
+    // Add click handlers
+    leftPanelTitles.forEach(title => {
+        title.addEventListener('click', () => {
+            const targetSection = title.nextElementSibling;
+            const isExpanded = targetSection.getAttribute('data-expanded') === 'true';
+            
+            // Toggle the clicked section
+            if (isExpanded) {
+                targetSection.classList.add('collapsed-section');
+                targetSection.classList.remove('expanded-section');
+                targetSection.style.display = 'none';
+            } else {
+                targetSection.classList.remove('collapsed-section');
+                targetSection.classList.add('expanded-section');
+                targetSection.style.display = 'block';
+            }
+            
+            targetSection.setAttribute('data-expanded', (!isExpanded).toString());
+            
+            // Update the visual indicator
+            const expandIcon = title.querySelector('.expand-icon');
+            if (expandIcon) {
+                expandIcon.textContent = isExpanded ? '▼' : '▲';
+            }
         });
-    }
-    if (allSalesSearchTitle && allSalesSearchSection && customerManagementSection) {
-        allSalesSearchTitle.addEventListener('click', () => {
-            toggleLeftPanelSection(allSalesSearchSection, customerManagementSection);
-        });
-    }
+    });
 
     // Cart Actions
     if (parkSaleButton) parkSaleButton.addEventListener('click', parkCurrentSale);
