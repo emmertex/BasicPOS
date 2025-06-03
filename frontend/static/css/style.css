@@ -1,4 +1,3 @@
-
 :root {
     /* Modern color palette */
     --primary-color: #2563eb;
@@ -87,8 +86,11 @@ main {
 }
 
 #left-panel {
-    width: 25%; /* Fixed width for left panel */
-    transition: width 0.3s ease-in-out; /* Animation for shrinking/expanding */
+    width: 25%;
+    transition: width 0.3s ease-in-out;
+    overflow-y: hidden; /* Prevent panel scrollbar */
+    display: flex;
+    flex-direction: column;
 }
 
 #left-panel.shrunk {
@@ -185,7 +187,14 @@ main {
 .left-panel-section {
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Important for smooth transitions of max-height within content */
+    flex: 1 1 auto;
+    min-height: 0; /* Allow flex children to shrink */
+}
+
+.left-panel-section-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto; /* Only content scrolls */
 }
 
 /* Styles for the section when it's expanded (takes up space in parent flexbox) */
@@ -1608,7 +1617,8 @@ button {
 .left-panel-section {
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Important for smooth transitions of max-height within content */
+    flex: 1 1 auto;
+    min-height: 0; /* Allow flex children to shrink */
 }
 
 /* Styles for the section when it's expanded (takes up space in parent flexbox) */
