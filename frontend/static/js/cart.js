@@ -157,7 +157,7 @@ export function updateCartCustomerDisplay(customer) {
             customerDetailsCartDiv.innerHTML = `
                 <p><strong>Customer:</strong> ${customer.name}</p>
                 <p>Phone: ${customer.phone || 'N/A'}</p>
-                <button id="change-cart-customer-btn">Change/Remove Customer</button>
+                <button id="change-cart-customer-btn" class="btn btn-warning">Change/Remove Customer</button>
             `;
             document.getElementById('change-cart-customer-btn')?.addEventListener('click', () => {
                 if (state.currentSale && state.currentSale.id) {
