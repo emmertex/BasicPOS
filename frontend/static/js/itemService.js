@@ -312,20 +312,27 @@ export async function openVariantSelectionModal(parentItem, onItemSelectedCallba
             variants.forEach(variant => {
                 const variantDiv = document.createElement('div');
                 variantDiv.className = 'variant-item';
+
+                const variantInfo = document.createElement('div');
+                variantInfo.className = 'variant-item-info';
                 const priceDisplay = (typeof variant.price === 'number') ? variant.price.toFixed(2) : 'N/A';
-                variantDiv.innerHTML = `
+                variantInfo.innerHTML = `
                     <strong>${variant.title}</strong> (SKU: ${variant.sku || 'N/A'}) - $${priceDisplay}<br>
                     Stock: ${variant.is_stock_tracked ? variant.stock_quantity : 'Not Tracked'}
-                    <button class="select-variant-btn btn btn-primary">${actionButtonText}</button>
                 `;
-                const selectButton = variantDiv.querySelector('.select-variant-btn');
+
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'variant-item-buttons';
+
+                // Configurable action button (from HEAD)
+                const actionButton = document.createElement('button');
+                actionButton.className = 'select-variant-btn btn btn-primary'; // Keeping btn-primary for consistent styling
+                actionButton.textContent = actionButtonText;
                 
-                // DEBUGGING: Log if the callback is available here
                 if (typeof onItemSelectedCallback !== 'function') {
                     console.warn('VariantSelectionModal: onItemSelectedCallback is NOT a function when setting up variant button for:', variant.title);
                 }
-
-                selectButton.addEventListener('click', () => {
+                actionButton.addEventListener('click', () => {
                     if (onItemSelectedCallback && typeof onItemSelectedCallback === 'function') {
                         const itemDataForCallback = {
                             id: variant.id,
@@ -334,7 +341,6 @@ export async function openVariantSelectionModal(parentItem, onItemSelectedCallba
                             sku: variant.sku,
                             parent_id: variant.parent_id
                         };
-                        // DEBUGGING: Log the data being sent to the callback
                         console.log('VariantSelectionModal: Calling onItemSelectedCallback with:', itemDataForCallback);
                         onItemSelectedCallback(itemDataForCallback);
                     } else {
@@ -343,16 +349,41 @@ export async function openVariantSelectionModal(parentItem, onItemSelectedCallba
                     }
                     closeVariantSelectionModal();
                 });
+                buttonContainer.appendChild(actionButton);
+
+                // Edit button (from origin/main)
+                const editBtn = document.createElement('button');
+                editBtn.className = 'edit-variant-btn btn btn-secondary'; // Added btn classes for styling
+                editBtn.textContent = 'Edit';
+                editBtn.addEventListener('click', () => {
+                    openEditItemForm(variant.id); // Assumes openEditItemForm is available in this scope
+                    closeVariantSelectionModal();
+                });
+                buttonContainer.appendChild(editBtn);
+
+                // Print Label button (from origin/main)
+                const printLabelBtn = document.createElement('button');
+                printLabelBtn.className = 'print-label-btn btn btn-info'; // Added btn classes for styling
+                printLabelBtn.textContent = 'Print Label';
+                printLabelBtn.addEventListener('click', () => {
+                    window.open(`/print/label/${variant.id}`, '_blank');
+                    showToast(`Opening label print page for ${variant.title}...`, 'info');
+                    // No closeVariantSelectionModal() here, as opening a new tab shouldn't necessarily close the modal
+                });
+                buttonContainer.appendChild(printLabelBtn);
+                
+                variantDiv.appendChild(variantInfo);
+                variantDiv.appendChild(buttonContainer);
                 variantListContainer.appendChild(variantDiv);
             });
         } else if (variants) { // variants is an empty array
-            variantListContainer.appendChild(document.createTextNode('No variants available for this item.'));
-        } else { // variants is null/undefined (error handled by apiCall)
-             variantListContainer.appendChild(document.createTextNode('Could not load variants.'));
+            variantListContainer.innerHTML = '<p>No variants available for this item.</p>'; // Standardized message
+        } else { // variants is null/undefined (error handled by apiCall or caller)
+             variantListContainer.innerHTML = '<p>Could not load variants.</p>'; // Standardized message
         }
     } catch (error) {
         console.error("Error fetching or displaying variants:", error);
-        loadingP.remove();
+        if(loadingP && loadingP.parentNode) loadingP.remove(); // Ensure loadingP exists and is in DOM
         const errorP = document.createElement('p');
         errorP.textContent = 'Error loading variants. Please try again.';
         errorP.style.color = 'red';

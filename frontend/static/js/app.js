@@ -308,22 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Payment of $${amount.toFixed(2)} via ${paymentType} recorded successfully.`, "success");
             updateCartDisplay(); 
             closePaymentModal();
-            if (state.currentSale.status === 'Paid') {
-                console.log(`[${callId}] Sale is now PAID. Setting timeout to clear cart.`);
-                showToast(`Sale ${state.currentSale.id} is now fully Paid. Clearing cart.`, "info");
-                setTimeout(() => {
-                    console.log(`[${callId}] Timeout: Clearing cart for sale ID ${state.currentSale ? state.currentSale.id : 'N/A'} which was PAID.`);
-                    if (state.currentSale && state.currentSale.status === 'Paid' && paymentResult.id === state.currentSale.id) { 
-                        state.currentSale = null; 
-                        state.currentCustomer = null;
-                        updateCartDisplay(); 
-                        loadParkedSales(); 
-                        console.log(`[${callId}] Timeout: Cart cleared and parked sales reloaded.`);
-                    } else {
-                         console.log(`[${callId}] Timeout: Cart not cleared. state.currentSale status: ${state.currentSale ? state.currentSale.status : 'N/A'} or state.currentSale is null, or ID mismatch.`);
-                    }
-                }, 1500);
-            }
+            // Open print options modal after successful payment
+            openPrintOptionsModal(state.currentSale.id);
         } else {
             showToast("Failed to record payment or received invalid response.", "error");
             console.log(`[${callId}] Payment recording failed or invalid response. paymentResult:`, paymentResult);
@@ -362,6 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast(`Sale ${state.currentSale.id} is now a Quote.`, 'success');
             updateCartDisplay();
             loadParkedSales();
+            // Open print options modal after setting as quote
+            openPrintOptionsModal(state.currentSale.id);
         } else {
             showToast("Failed to update sale to Quote status.", 'error');
         }
@@ -1173,16 +1161,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leftPanelExpandTag) leftPanelExpandTag.addEventListener('click', expandLeftPanel);
     
     // Dynamic Left Panel Sections
-    if (customerManagementTitle && customerManagementSection && allSalesSearchSection) {
-        customerManagementTitle.addEventListener('click', () => {
-            toggleLeftPanelSection(customerManagementSection, allSalesSearchSection);
+    const leftPanelTitles = document.querySelectorAll('.left-panel-section-title');
+    
+    // Initialize sections
+    leftPanelTitles.forEach(title => {
+        const section = title.nextElementSibling;
+        if (section) {
+            // Set initial state - Sales History section should be visible by default
+            const isSalesHistory = title.textContent.includes('Find Sales');
+            const isCurrentlyVisible = isSalesHistory ? true : !section.classList.contains('collapsed-section');
+            
+            // Update classes and display
+            if (isCurrentlyVisible) {
+                section.classList.remove('collapsed-section');
+                section.classList.add('expanded-section');
+                section.style.display = 'block';
+            } else {
+                section.classList.add('collapsed-section');
+                section.classList.remove('expanded-section');
+                section.style.display = 'none';
+            }
+            
+            section.setAttribute('data-expanded', isCurrentlyVisible.toString());
+            
+            // Add expand icon if it doesn't exist
+            if (!title.querySelector('.expand-icon')) {
+                const expandIcon = document.createElement('span');
+                expandIcon.className = 'expand-icon';
+                expandIcon.textContent = isCurrentlyVisible ? '▲' : '▼';
+                title.insertBefore(expandIcon, title.firstChild);
+            }
+        }
+    });
+    
+    // Add click handlers
+    leftPanelTitles.forEach(title => {
+        title.addEventListener('click', () => {
+            const targetSection = title.nextElementSibling;
+            const isExpanded = targetSection.getAttribute('data-expanded') === 'true';
+            
+            // Toggle the clicked section
+            if (isExpanded) {
+                targetSection.classList.add('collapsed-section');
+                targetSection.classList.remove('expanded-section');
+                targetSection.style.display = 'none';
+            } else {
+                targetSection.classList.remove('collapsed-section');
+                targetSection.classList.add('expanded-section');
+                targetSection.style.display = 'block';
+            }
+            
+            targetSection.setAttribute('data-expanded', (!isExpanded).toString());
+            
+            // Update the visual indicator
+            const expandIcon = title.querySelector('.expand-icon');
+            if (expandIcon) {
+                expandIcon.textContent = isExpanded ? '▼' : '▲';
+            }
         });
-    }
-    if (allSalesSearchTitle && allSalesSearchSection && customerManagementSection) {
-        allSalesSearchTitle.addEventListener('click', () => {
-            toggleLeftPanelSection(allSalesSearchSection, customerManagementSection);
-        });
-    }
+    });
 
     // Cart Actions
     if (parkSaleButton) parkSaleButton.addEventListener('click', parkCurrentSale);

@@ -220,7 +220,7 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
                     </div>
                     <div style="margin-top: 5px; display: flex; gap: 5px;">
                         <button class="edit-customer-btn btn btn-warning" data-customer-id="${customer.id}">Edit</button>
-                        <button class="select-customer-for-sale-btn btn btn-primary" data-customer-id="${customer.id}">Select for Sale</button>
+                        <button class="select-customer-for-sale-btn btn btn-primary" data-customer-id="${customer.id}">Select</button>
                     </div>
                 `;
                 custDiv.querySelector('.edit-customer-btn').addEventListener('click', () => openEditCustomerModal(customer.id));
