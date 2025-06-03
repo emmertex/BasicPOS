@@ -1,0 +1,104 @@
+{% extends 'layout_web.html' %}
+
+{% block title %}{{ item.title }} - {{ super() }}{% endblock %}
+
+{% block content %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('web_bp.home') }}">Home</a></li>
+            {% if item.category %}
+            <li class="breadcrumb-item"><a href="{{ url_for('web_bp.category_page', category_id=item.category.id) }}">{{ item.category.name }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item active" aria-current="page">{{ item.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="product-detail">
+        <div class="product-image-column">
+            {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
+            {% if primary_photo and primary_photo.image_url %}
+                <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_large') }}" alt="{{ item.title }}" class="primary-photo" id="mainProductImage">
+            {% else %}
+                <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="No image available" class="primary-photo" id="mainProductImage" style="background-color:#eee; object-fit:cover;">
+            {% endif %}
+            
+            {% if item.photos.count() > 1 %}
+            <div class="thumbnail-gallery">
+                {% for photo in item.photos %}
+                    {% if photo.image_url %}
+                        <img src="{{ get_product_image_url(photo.image_url, size_suffix='_small') }}" 
+                             alt="Thumbnail for {{ item.title }} - {{ loop.index }}" 
+                             class="thumbnail-photo {% if photo == primary_photo %}active{% endif %}"
+                             data-large-src="{{ get_product_image_url(photo.image_url, size_suffix='_large') }}">
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="product-info-column">
+            <h1>{{ item.title }}</h1>
+            <p class="price">${{ "%.2f"|format(item.price) }}</p>
+            
+            <div class="sku-category">
+                <p>SKU: {{ item.sku or 'N/A' }}</p>
+                {% if item.category %}
+                    <p>Category: <a href="{{ url_for('web_bp.category_page', category_id=item.category.id) }}">{{ item.category.name }}</a></p>
+                {% endif %}
+            </div>
+
+            <!-- Size/Model options would go here if data is available -->
+            <!-- Example placeholder for where they might be integrated -->
+            <!-- 
+            <div class="product-options">
+                <div class="form-group">
+                    <label for="sizeOptions">Size</label>
+                    <select class="form-control" id="sizeOptions">
+                        <option>Choose an option</option>
+                        <option>Small</option>
+                        <option>Medium</option>
+                        <option>Large</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="modelOptions">Model</label>
+                    <select class="form-control" id="modelOptions">
+                        <option>Choose an option</option>
+                        <option>Model A</option>
+                        <option>Model B</option>
+                    </select>
+                </div>
+            </div>
+            -->
+
+            <h3>Additional Information</h3>
+            <p class="description">{{ item.description or 'No description available.' }}</p>
+            
+            <p><strong>Availability:</strong> Now available in-store at {{ config.COMPANY_ADDRESS_LINE1 }}, {{ config.COMPANY_CITY_STATE_POSTCODE }}</p>
+
+            <p class="mt-2"><strong>Note:</strong> Online checkout is disabled. Please come in store to purchase.</p>
+        </div>
+    </div>
+
+    <!-- Related products could be added here -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mainImage = document.getElementById('mainProductImage');
+    const thumbnails = document.querySelectorAll('.thumbnail-photo');
+
+    thumbnails.forEach(thumbnail => {
+        thumbnail.addEventListener('click', function() {
+            if (mainImage && this.dataset.largeSrc) {
+                mainImage.src = this.dataset.largeSrc;
+            }
+            thumbnails.forEach(th => th.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,568 @@
+/* Basic styling - you'll need to expand this significantly to match the images */
+body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; /* Common sans-serif stack */
+    margin: 0;
+    color: #333;
+    background-color: #f4f4f4; /* Light grey background for the page */
+}
+
+/* Original nav styling - can be removed or refactored if .main-navigation replaces it */
+/* nav {
+    background-color: #f8f8f8;
+    padding: 1em;
+    border-bottom: 1px solid #ddd;
+}
+
+nav a {
+    margin-right: 1em;
+    text-decoration: none;
+    color: #007bff;
+} */
+
+.container {
+    padding: 1em;
+    max-width: 1200px; /* Standard container width */
+    margin: auto;
+    background-color: #fff; /* White background for content area */
+    box-shadow: 0 0 10px rgba(0,0,0,0.05); /* Subtle shadow for container */
+}
+
+footer.site-footer-bar { /* More specific selector for footer */
+    text-align: center;
+    padding: 20px;
+    margin-top: 2em;
+    background-color: #333; /* Dark footer */
+    color: #ccc;
+    border-top: 3px solid #007bff; /* Accent color top border */
+    font-size: 0.9em;
+}
+
+.footer-content p {
+    margin: 0.5em 0;
+}
+.footer-content a {
+    color: #fff; /* White links in footer */
+    text-decoration: none;
+}
+.footer-content a:hover {
+    text-decoration: underline;
+}
+
+/* Header Styles */
+.site-header {}
+
+.header-top-bar {
+    background-color: #004A8E; /* Dark blue from logo */
+    color: white;
+    text-align: center;
+    padding: 8px 15px;
+    font-size: 0.9em;
+}
+
+.header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 30px; /* Adjust padding as needed */
+    background-color: #fff; /* White header background */
+    border-bottom: 1px solid #ddd;
+}
+
+.logo-container .logo-img {
+    max-height: 70px; /* Adjust based on your logo's aspect ratio */
+    width: auto;
+}
+
+/* Navigation */
+.main-navigation {
+    display: flex;
+    align-items: center;
+    flex-grow: 1; /* Allow navigation to take available space */
+    justify-content: center; /* Center navigation items */
+}
+
+.nav-item {
+    position: relative;
+    margin: 0 5px; /* Spacing between top-level items */
+}
+
+.nav-item a.nav-link, .nav-item > a {
+    padding: 10px 15px;
+    text-decoration: none;
+    color: #333; /* Adjust color as per your design */
+    display: block;
+    text-transform: uppercase; /* As seen in screenshot */
+    font-weight: bold; /* As seen in screenshot */
+    font-size: 0.9em;
+    border-radius: 4px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.nav-item > a:hover, .dropdown:hover > a.nav-link {
+    background-color: #007bff; /* Blue background on hover */
+    color: #fff; /* White text on hover */
+}
+
+.dropdown .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #fff; /* White dropdown background */
+    min-width: 220px; /* Wider dropdown */
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
+    z-index: 1000; /* Ensure dropdown is on top */
+    left: 0; /* Align with parent */
+    border: 1px solid #ddd;
+    border-top: 3px solid #007bff; /* Example accent color */
+    padding: 5px 0; /* Padding inside the dropdown box */
+    border-radius: 0 0 4px 4px;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+.dropdown-content a {
+    color: #333;
+    padding: 10px 20px; /* Padding for dropdown items */
+    text-decoration: none;
+    display: block;
+    text-align: left;
+    font-weight: normal; /* Sub-items not bold */
+    text-transform: none; /* Sub-items not uppercase */
+    font-size: 0.9em;
+    transition: background-color 0.3s ease;
+}
+
+.dropdown-content a:hover {background-color: #f0f0f0}
+
+
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
+.headbackgrounder-actions span, .header-actions a {
+    margin-left: 20px; /* Spacing for action items */
+    text-decoration: none;
+    color: #555;
+    font-size: 1.1em; /* Slightly larger icons/text */
+}
+.header-actions a:hover {
+    color: #007bff;
+}
+
+/* Homepage Hero Section */
+.hero-section {
+    background-image: url('../images/TB_Hero.jpg'); /* ASSUMPTION: You will add this image */
+    background-size: cover;
+    background-position: center center;
+    color: white;
+    padding: 60px 20px;
+    text-align: center;
+    min-height: 300px; /* Minimum height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.hero-section::before { /* Optional: Dark overlay for better text readability */
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.hero-content {
+    position: relative; /* To sit on top of the overlay */
+    z-index: 1;
+    background-color: rgba(0,0,0,0.3); /* Slight dark background for the text box itself for readability */
+    padding: 30px;
+    border-radius: 8px;
+}
+
+.hero-content h2 {
+    font-size: 2.8em;
+    margin-bottom: 0.5em;
+    font-weight: bold;
+    color: #fff;
+}
+
+.hero-content p {
+    font-size: 1.2em;
+    margin-bottom: 1.5em;
+    color: #f0f0f0;
+}
+
+
+/* Homepage category list - reusing some of product-grid styling */
+.category-list {
+    display: grid; /* Changed to grid for consistency */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Match product grid */
+    gap: 1.5em; /* Slightly larger gap */
+    margin-top: 2em;
+}
+
+.category-item {
+    border: 1px solid #ddd; /* Clearer border */
+    padding: 0; /* Remove padding, image will fill */
+    text-align: center;
+    background-color: #fff;
+    position: relative; /* For text overlay if needed */
+    border-radius: 4px;
+    overflow: hidden; /* To respect border-radius for image */
+    transition: box-shadow 0.3s ease;
+}
+.category-item:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+.category-item a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.category-item img {
+    width: 100%; /* Changed from max-width */
+    height: 200px; /* Increased height */
+    object-fit: cover; /* Make images cover the area */
+    display: block; /* Remove any extra space below image */
+    transition: transform 0.3s ease;
+}
+.category-item:hover img {
+    transform: scale(1.05);
+}
+
+.category-item p {
+    padding: 15px 10px;
+    background-color: #f8f9fa; /* Light background for text */
+    margin: 0; /* Reset margin */
+    font-weight: bold;
+    border-top: 1px solid #eee;
+}
+
+/* Product grid (for category page & homepage featured) */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Slightly wider items */
+    gap: 1.5em;
+    margin-top: 1em;
+}
+
+.product-item {
+    border: 1px solid #ddd;
+    background-color: #fff;
+    text-align: center;
+    padding-bottom: 1em; /* Add padding at the bottom */
+    border-radius: 4px;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease;
+}
+.product-item:hover {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.product-item a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.product-item img {
+    width: 100%; /* Make image responsive within its container */
+    height: 180px; /* Fixed height for consistency */
+    object-fit: cover;
+    margin-bottom: 0.5em;
+    transition: transform 0.3s ease;
+}
+.product-item:hover img {
+    transform: scale(1.05);
+}
+
+.product-item h3 {
+    font-size: 1.05em; /* Adjusted size */
+    margin: 0.5em 10px;
+    color: #333;
+    height: 3.6em; /* Approx 3 lines of text (1.2em line-height * 3) */
+    line-height: 1.2em; /* Explicit line-height for height calculation */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* Changed from 2 to 3 */
+    -webkit-box-orient: vertical;
+}
+.product-item p.price {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #007bff; /* Blue price */
+    margin: 0.5em 0;
+}
+
+/* Product detail page */
+.product-detail {
+    display: flex;
+    gap: 30px; /* Increased gap */
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    margin-top: 2em; /* Increased margin */
+    padding: 20px;
+    background-color: #fff;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+
+.product-image-column {
+    flex: 0 0 45%; /* Fixed percentage for image column */
+    max-width: 45%;
+}
+
+.primary-photo {
+    width: 100%;
+    height: auto;
+    max-height: 450px; /* Max height for primary photo */
+    object-fit: contain; /* Ensure whole image is visible */
+    border: 1px solid #ddd;
+    margin-bottom: 1em;
+    border-radius: 4px;
+}
+
+.thumbnail-gallery {
+    display: flex;
+    gap: 10px; /* Increased gap */
+    flex-wrap: wrap; /* Allow thumbnails to wrap */
+}
+
+.thumbnail-photo {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: border-color 0.3s ease;
+}
+.thumbnail-photo:hover, .thumbnail-photo.active {
+    border-color: #007bff;
+}
+
+.product-info-column {
+    flex: 1; /* Takes remaining space */
+    min-width: 300px; /* Minimum width before wrapping */
+}
+
+.product-info-column h1 {
+    font-size: 2.2em; /* Slightly larger */
+    margin-top: 0;
+    margin-bottom: 0.3em;
+    color: #222;
+}
+
+.product-info-column .price {
+    font-size: 2em; /* Larger price */
+    color: #333; /* Black price as in screenshot */
+    margin-bottom: 0.75em;
+    font-weight: bold;
+}
+
+.product-info-column .sku-category {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 1em;
+}
+.product-info-column .sku-category p {
+    margin: 0.3em 0;
+}
+
+.product-info-column h3 { /* For "Additional Information" etc. */
+    font-size: 1.3em;
+    margin-top: 1.5em;
+    margin-bottom: 0.75em;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5em;
+    color: #333;
+}
+.product-info-column .description {
+    line-height: 1.6;
+    color: #555;
+}
+
+/* Breadcrumbs (simple styling) */
+.breadcrumb {
+    list-style: none;
+    padding: 0.75em 1em;
+    margin-bottom: 1.5em; /* Increased margin */
+    background-color: #e9ecef; /* Lighter background */
+    border-radius: 0.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.9em;
+}
+
+.breadcrumb-item {
+    display: flex; /* Align icon with text if using icons */
+    align-items: center;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: ">";
+    padding: 0 0.75em;
+    color: #6c757d;
+}
+
+.breadcrumb-item a {
+    text-decoration: none;
+    color: #007bff;
+}
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: #333;
+    font-weight: bold;
+}
+
+/* Site under development message on homepage - distinct from hero content*/
+.site-dev-message.standalone {
+    background-color: #fff3cd; /* Light yellow */
+    border: 1px solid #ffeeba;
+    color: #856404;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+    border-radius: 5px;
+}
+
+.site-dev-message.standalone h2 {
+    margin-top: 0;
+    font-size: 1.5em;
+}
+
+/* General button styling - Placeholder, can be expanded */
+.btn {
+    display: inline-block;
+    font-weight: bold; /* Bolder buttons */
+    color: #212529;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: 0.5rem 1rem; /* Slightly larger padding */
+    font-size: 1rem;
+    line-height: 1.5;
+    border-radius: 0.25rem;
+    transition: all 0.15s ease-in-out;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-primary:hover {
+    color: #fff;
+    background-color: #0056b3;
+    border-color: #0056b3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Explore the shop button on homepage */
+.explore-shop-btn {
+    background-color: #343a40; /* Dark grey / black */
+    color: white;
+    padding: 12px 25px;
+    font-size: 1.1em;
+    text-decoration: none;
+    border-radius: 5px;
+    display: inline-block;
+    margin-top: 20px;
+}
+
+.explore-shop-btn:hover {
+    background-color: #23272b;
+    color: #fff;
+}
+
+/* Ensure main content has some top padding if header is fixed or has substantial height */
+.main-content {
+    padding-top: 20px; /* Initial padding */
+    /* If header becomes fixed, this padding might need to equal header height */
+}
+
+/* Utility classes */
+.text-center {
+    text-align: center;
+}
+.mt-1 { margin-top: 0.5rem !important; }
+.mt-2 { margin-top: 1rem !important; }
+.mt-3 { margin-top: 1.5rem !important; }
+.mb-1 { margin-bottom: 0.5rem !important; }
+.mb-2 { margin-bottom: 1rem !important; }
+.mb-3 { margin-bottom: 1.5rem !important; }
+
+/* Responsive adjustments could be added here with media queries */
+@media (max-width: 992px) {
+    .header-main {
+        flex-direction: column;
+        padding: 15px;
+    }
+    .logo-container {
+        margin-bottom: 15px;
+    }
+    .main-navigation {
+        flex-direction: column;
+        width: 100%;
+        align-items: stretch;
+    }
+    .nav-item {
+        margin: 5px 0;
+        text-align: center;
+    }
+    .nav-item a.nav-link, .nav-item > a {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    .dropdown .dropdown-content {
+        position: static; /* Make dropdowns flow in mobile */
+        box-shadow: none;
+        border: none;
+        border-top: none;
+        background-color: #f0f0f0; /* Slightly different background for mobile dropdown */
+    }
+    .dropdown-content a {
+        padding-left: 30px; /* Indent mobile sub-items */
+    }
+    .header-actions {
+        margin-top: 15px;
+        width: 100%;
+        justify-content: space-around;
+    }
+    .product-image-column, .product-info-column {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-content h2 {
+        font-size: 2em;
+    }
+    .hero-content p {
+        font-size: 1em;
+    }
+    .product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 576px) {
+    .product-grid {
+        grid-template-columns: 1fr; /* Single column on very small screens */
+    }
+} 

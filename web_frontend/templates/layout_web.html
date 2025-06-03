@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% block title %}True Blue Dealers{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('web_bp.static', filename='css/style_web.css') }}">
+    <!-- You might want to include Bootstrap or another CSS framework for quicker styling -->
+    <!-- <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet"> -->
+    <!-- Consider adding FontAwesome or similar for icons later -->
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-top-bar">
+            <span>We don't list all products online, and some may be out of stock - Please come in store.</span>
+        </div>
+        <div class="header-main">
+            <div class="logo-container">
+                <a href="{{ url_for('web_bp.home') }}">
+                    <img src="{{ url_for('web_bp.static', filename=config.COMPANY_LOGO_FILENAME) }}" alt="{{ config.COMPANY_NAME }} Logo" class="logo-img">
+                </a>
+            </div>
+            <nav class="main-navigation">
+                <div class="nav-item">
+                    <a href="{{ url_for('web_bp.home') }}" class="nav-link">Home</a>
+                </div>
+                {% for category in top_level_categories %}
+                    <div class="nav-item dropdown">
+                        <a href="{{ url_for('web_bp.category_page', category_id=category.id) }}" class="nav-link">{{ category.name }}</a>
+                        {% if category.children %}
+                            <div class="dropdown-content">
+                                {% for sub_category in category.children %}
+                                    <a href="{{ url_for('web_bp.category_page', category_id=sub_category.id) }}">{{ sub_category.name }}</a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                 <div class="nav-item">
+                    <a href="#contact" class="nav-link">Contact</a> 
+                 </div>
+            </nav>
+            <div class="header-actions">
+            </div>
+        </div>
+    </header>
+
+    <div class="container main-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="site-footer-bar">
+        <div class="footer-content">
+            <p>&copy; {{ config.COMPANY_YEAR or '2024' }} {{ config.COMPANY_NAME }}. All Rights Reserved.</p>
+            <p>{{ config.COMPANY_ADDRESS_LINE1 }}, {{ config.COMPANY_CITY_STATE_POSTCODE }} | Phone: {{ config.COMPANY_PHONE }} | Email: {{ config.COMPANY_EMAIL }}</p>
+            <p><a href="http://{{ config.COMPANY_WEBSITE }}" target="_blank">{{ config.COMPANY_WEBSITE }}</a></p>
+            <p>{{ config.COMPANY_FOOTER_A4 }}</p>
+        </div>
+    </footer>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html> 

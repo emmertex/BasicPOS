@@ -273,6 +273,9 @@ class SaleService:
                         # Prevent stock from going excessively negative if not allowed
                         # This basic deduction assumes sufficient stock or allows negative stock
                         item.stock_quantity -= sale_item.quantity
+                        if item.stock_quantity <= 0:
+                            item.show_on_website = False
+                            item.is_active = False
             # db.session.commit() will be handled by the calling function
             return True, None
         except Exception as e:
