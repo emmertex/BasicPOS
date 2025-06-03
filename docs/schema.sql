@@ -2,6 +2,11 @@
     DROP TABLE IF EXISTS items;
     DROP TABLE IF EXISTS categories;
     DROP TABLE IF EXISTS photos;
+    DROP TABLE IF EXISTS customers;
+    DROP TABLE IF EXISTS sales;
+    DROP TABLE IF EXISTS sale_items;
+    DROP TABLE IF EXISTS payments;
+    DROP TABLE IF EXISTS quick_add_items;
     -- Potentially drop 'photos' and other related tables if they exist
 
 
@@ -57,8 +62,12 @@ CREATE TABLE Customers (
     company_name VARCHAR(255),
     PRIMARY KEY (id)
 );
-
+SET FOREIGN_KEY_CHECKS = 0;
+    DROP TABLE IF EXISTS sales;
+    DROP TABLE IF EXISTS sale_items;
+    DROP TABLE IF EXISTS payments;
 -- Sales Table
+
 CREATE TABLE Sales (
     id INTEGER NOT NULL AUTO_INCREMENT,
     customer_id INTEGER,
@@ -67,6 +76,7 @@ CREATE TABLE Sales (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     customer_notes TEXT,
     internal_notes TEXT,
+    purchase_order_number VARCHAR(100),
     PRIMARY KEY (id),
     FOREIGN KEY(customer_id) REFERENCES Customers (id)
 );
@@ -95,7 +105,7 @@ CREATE TABLE Payments (
     PRIMARY KEY (id),
     FOREIGN KEY(sale_id) REFERENCES Sales (id) ON DELETE CASCADE
 );
-
+    SET FOREIGN_KEY_CHECKS = 1;
 -- Quick Add Items Table (as specified above)
 CREATE TABLE quick_add_items (
     id INTEGER NOT NULL AUTO_INCREMENT,

@@ -334,10 +334,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.currentSale && state.currentSale.id) {
             let saleToParkStatus = state.currentSale.status;
             if (saleToParkStatus !== 'Open' && saleToParkStatus !== 'Quote' && saleToParkStatus !== 'Invoice') {
-                showToast(`Sale is ${saleToParkStatus}. Cannot be parked.`, 'warning');
-                return;
+                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
+            } else {
+                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
             }
-            showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
             state.currentSale = null;
             state.currentCustomer = null; 
             updateCartDisplay(); 
@@ -369,38 +369,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function handleVoidSale() {
         if (!state.currentSale || !state.currentSale.id) {
-            showToast("No active sale to void.", 'warning');
+            showToast("No active sale to clear.", 'warning');
             return;
         }
 
-        if (state.currentSale.status === 'Paid' || state.currentSale.status === 'Void') {
-            showToast(`Sale is already ${state.currentSale.status}. Cannot void.`, 'info');
-            return;
-        }
+        const saleIdToPotentiallyVoid = state.currentSale.id;
+        const originalStatus = state.currentSale.status;
 
-        // Optional: Add a confirmation dialog in a real application
-        // const confirmed = confirm(`Are you sure you want to void sale ${state.currentSale.id}? This action cannot be undone.`);
-        // if (!confirmed) return;
+        // --- Primary Action: Clear the local cart immediately --- 
+        state.currentSale = null;
+        state.currentCustomer = null;
+        updateCartDisplay();
+        showToast("Cart has been cleared.", 'info');
+        console.log(`Local cart cleared. Sale ID was: ${saleIdToPotentiallyVoid}, Original status: ${originalStatus}.`);
+        // --- End of Primary Action ---
 
-        const updatedSale = await apiCall(`/sales/${state.currentSale.id}/status`, 'PUT', { status: 'Void' });
-        if (updatedSale && updatedSale.id) {
-            state.currentSale = updatedSale; // Keep it in state to show it's voided
-            showToast(`Sale ${state.currentSale.id} has been voided.`, 'success');
-            updateCartDisplay(); // Update display to reflect void status
-            loadParkedSales();   // Refresh parked sales list
-
-            // Optionally, clear after a delay
-            setTimeout(() => {
-                if (state.currentSale && state.currentSale.id === updatedSale.id && state.currentSale.status === 'Void') {
-                    state.currentSale = null;
-                    state.currentCustomer = null;
-                    updateCartDisplay();
-                    console.log(`Cleared voided sale ${updatedSale.id} from active cart view.`);
+        // --- Secondary Action: Attempt backend void if applicable ---
+        if (originalStatus !== 'Void') {
+            try {
+                console.log(`Attempting to set sale ${saleIdToPotentiallyVoid} to Void on backend. Original status: ${originalStatus}`);
+                const updatedSale = await apiCall(`/sales/${saleIdToPotentiallyVoid}/status`, 'PUT', { status: 'Void' });
+                if (updatedSale && updatedSale.id) {
+                    showToast(`Sale ${updatedSale.id} status updated to Void on server.`, 'success');
+                } else {
+                    showToast(`Failed to confirm sale ${saleIdToPotentiallyVoid} status update on server. Please check server logs.`, 'warning');
                 }
-            }, 2000);
-        } else {
-            showToast("Failed to void sale.", 'error');
+            } catch (error) {
+                showToast(`Error trying to void sale ${saleIdToPotentiallyVoid} on server: ${error.message}`, 'error');
+                console.error("Error during backend void POST operation:", error);
+            }
         }
+        // --- End of Secondary Action ---
+        
+        // Always refresh parked sales list to reflect any potential status changes or ensure consistency
+        loadParkedSales();
     }
 
     async function searchAllSales() {
@@ -665,23 +667,37 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Use the existing item search endpoint if suitable, or a dedicated one if available
             // Assuming the main item search can be filtered and is light enough for this
-            const queryParams = { q: searchTerm, limit: 20 }; // Limit results for modal display
+            const queryParams = { q: searchTerm, limit: 20, is_current_version: true }; // Limit results and ensure current
             const items = await apiCall('/items/', 'GET', null, queryParams);
 
             qaiItemSearchResultsDiv.innerHTML = ''; // Clear loading message
 
             if (items && items.length > 0) {
                 items.forEach(item => {
-                    if (!item.is_current_version) return; // Only show current versions
+                    // Redundant check if is_current_version=true is respected by API, but good for safety.
+                    if (!item.is_current_version) return; 
+
+                    // Log the item object being processed
+                    console.log('[handleSearchQAIItems] Processing item for QAI modal:', JSON.stringify(item));
 
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'qai-search-result';
-                    itemDiv.textContent = `${item.title} (SKU: ${item.sku}) - Price: ${item.price !== null ? item.price.toFixed(2) : 'N/A'}`;
+                    itemDiv.textContent = `${item.title} (SKU: ${item.sku || 'N/A'}) - Price: ${item.price !== null ? parseFloat(item.price).toFixed(2) : 'N/A'}`;
                     itemDiv.dataset.itemId = item.id;
                     itemDiv.dataset.itemTitle = item.title;
-                    itemDiv.dataset.itemPrice = item.price; // Store price
-                    itemDiv.dataset.itemParentId = item.parent_id; // Store parent_id
+                    // Ensure price is stored as a string that can be parsed, or handle null/undefined gracefully
+                    itemDiv.dataset.itemPrice = (item.price !== null && item.price !== undefined) ? parseFloat(item.price).toString() : "0.00"; 
+                    itemDiv.dataset.itemParentId = item.parent_id; 
+                    itemDiv.dataset.itemSku = item.sku || ''; // Ensure SKU is stored, default to empty string if null/undefined
+                    itemDiv.dataset.itemDescription = item.description || ''; // Add description
                     
+                    // Log the dataset being applied
+                    console.log('[handleSearchQAIItems] Applying dataset to div:', 
+                                 `itemId: ${itemDiv.dataset.itemId}, itemTitle: ${itemDiv.dataset.itemTitle}, ` +
+                                 `itemPrice: ${itemDiv.dataset.itemPrice}, itemParentId: ${itemDiv.dataset.itemParentId}, `+
+                                 `itemSku: ${itemDiv.dataset.itemSku}`
+                                );
+
                     // Add click listener to select the item
                     itemDiv.addEventListener('click', () => {
                         // Remove 'selected' class from previously selected item
@@ -706,35 +722,44 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Modified to accept parameters and contain the logic for adding a QAI item
     async function handleAddQuickAddItem(itemId, itemTitle, itemPrice, itemParentId) { 
-        // If it's a parent item (parent_id == -2), price might be irrelevant or 0.
-        // The original price check might be too strict for parent items.
-        // For now, we'll keep the check but acknowledge it might need refinement if parent items legitimately have null/0 price.
-        if (itemParentId !== '-2' && (itemPrice === null || itemPrice === undefined || itemPrice === "null" || itemPrice === "undefined")) {
-            showToast('Selected item does not have a valid price. Cannot add to Quick Add.', 'error');
+        console.log(`[handleAddQuickAddItem] Called with: itemId=${itemId}, itemTitle='${itemTitle}', itemPrice=${itemPrice}, itemParentId=${itemParentId}`);
+
+        if (itemParentId !== '-2' && (itemPrice === null || itemPrice === undefined || itemPrice === "null" || itemPrice === "undefined" || String(itemPrice).trim() === "")) {
+            const err_msg = 'Selected item does not have a valid price. Cannot add to Quick Add.';
+            console.warn(`[handleAddQuickAddItem] Validation Error: ${err_msg}`);
+            showToast(err_msg, 'error');
             return;
         }
         
         const numericItemPrice = parseFloat(itemPrice);
         if (itemParentId !== '-2' && isNaN(numericItemPrice)) {
-             showToast('Selected item price is not a valid number. Cannot add to Quick Add.', 'error');
+             const err_msg = 'Selected item price is not a valid number. Cannot add to Quick Add.';
+             console.warn(`[handleAddQuickAddItem] Validation Error: ${err_msg}`);
+             showToast(err_msg, 'error');
             return;
         }
 
         const newQaiData = {
             page_number: state.currentQuickAddPage,
             type: 'item',
-            label: itemTitle.substring(0, 50), // Max label length
+            label: itemTitle.substring(0, 50),
             item_id: itemId,
-            item_parent_id: itemParentId ? parseInt(itemParentId, 10) : null, // Add item_parent_id
-            color: '#B4F8C8' // Default color for new items
+            item_parent_id: itemParentId ? parseInt(itemParentId, 10) : null,
+            color: '#B4F8C8'
         };
+        console.log('[handleAddQuickAddItem] Making API call to /quick_add_items/ with data:', newQaiData);
         const result = await apiCall('/quick_add_items/', 'POST', newQaiData);
+        console.log('[handleAddQuickAddItem] API call result:', result);
+
         if (result && !result.error) {
+            console.log('[handleAddQuickAddItem] API call successful. Closing quickAddNewItemModal and reloading items.');
             showToast(`'${itemTitle}' added to Quick Add page ${state.currentQuickAddPage}.`, 'success');
             closeQuickAddNewItemModal();
             loadQuickAddItems(state.currentQuickAddPage);
         } else {
-            showToast(`Failed to add item to Quick Add: ${result ? result.error : 'Unknown error'}`, 'error');
+            const err_msg = `Failed to add item to Quick Add: ${result ? result.error : 'Unknown error'}`;
+            console.error(`[handleAddQuickAddItem] API call failed or error in result: ${err_msg}`);
+            showToast(err_msg, 'error');
         }
     }
 
@@ -1339,8 +1364,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 const itemId = selectedItemDiv.dataset.itemId;
                 const itemTitle = selectedItemDiv.dataset.itemTitle;
                 const itemPrice = selectedItemDiv.dataset.itemPrice;
-                const itemParentId = selectedItemDiv.dataset.itemParentId; // Get parentId
-                await handleAddQuickAddItem(itemId, itemTitle, itemPrice, itemParentId); // Pass parentId
+                const itemParentId = selectedItemDiv.dataset.itemParentId;
+                const itemSku = selectedItemDiv.dataset.itemSku;
+                const itemDescription = selectedItemDiv.dataset.itemDescription; // Get description
+
+                console.log('[qaiSubmitNewItemButton] Clicked. Selected item dataset from .selected div:', 
+                            `itemId: ${itemId}, itemTitle: ${itemTitle}, ` +
+                            `itemPrice: ${itemPrice}, itemParentId: ${itemParentId}, ` +
+                            `itemSku: ${itemSku}, itemDescription: ${itemDescription}`);
+
+                if (itemParentId === '-2') {
+                    const parentItemDetails = {
+                        id: itemId, // This should be a string, ensure serviceOpenVariantSelectionModal handles it if it needs number
+                        title: itemTitle,
+                        price: parseFloat(itemPrice), // Ensure price is a number
+                        sku: itemSku,
+                        parent_id: parseInt(itemParentId, 10), // Ensure parent_id is a number
+                        description: itemDescription
+                    };
+
+                    console.log(`[qaiSubmitNewItemButton] About to call serviceOpenVariantSelectionModal with parentItemDetails:`, parentItemDetails);
+                    serviceOpenVariantSelectionModal(
+                        parentItemDetails, // Pass the constructed object
+                        (selectedItemData) => { 
+                            handleAddQuickAddItem(selectedItemData.id, selectedItemData.title, selectedItemData.price, selectedItemData.parent_id);
+                        },
+                        { 
+                            showAddParentButton: true,
+                            // parentItemData in config is now somewhat redundant here but kept for modal's internal structure if it uses it as fallback
+                            parentItemData: parentItemDetails, 
+                            modalTitlePrefix: 'Choose Option for ', // Modal title will be: Choose Option for [Item Title]
+                            itemButtonText: 'Add to Quick Add',
+                            isQuickAddContext: true 
+                        }
+                    );
+                } else {
+                    await handleAddQuickAddItem(itemId, itemTitle, itemPrice, itemParentId);
+                }
             } else {
                 showToast("No item selected to add to Quick Add.", "warning");
             }

@@ -197,12 +197,16 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
             currentSearchTerm = searchTerm.target.value.toLowerCase();
         }
 
+        // Sort customers alphabetically by name
+        customersData.sort((a, b) => a.name.localeCompare(b.name));
 
         customersData
             .filter(customer => {
                 if (!currentSearchTerm) return true;
                 return customer.name.toLowerCase().includes(currentSearchTerm) ||
-                       (customer.phone && customer.phone.toLowerCase().includes(currentSearchTerm));
+                       (customer.phone && customer.phone.toLowerCase().includes(currentSearchTerm)) ||
+                       (customer.email && customer.email.toLowerCase().includes(currentSearchTerm)) ||
+                       (customer.company_name && customer.company_name.toLowerCase().includes(currentSearchTerm));
             })
             .forEach(customer => {
                 const custDiv = document.createElement('div');

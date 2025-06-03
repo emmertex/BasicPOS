@@ -65,7 +65,7 @@ class SaleService:
                     )
                 )
 
-        return query.order_by(Sale.created_at.desc()).all()
+        return query.order_by(Sale.id.desc()).limit(50).all()
 
     @staticmethod
     def get_sales_by_status(status_value):

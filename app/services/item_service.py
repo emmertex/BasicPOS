@@ -97,53 +97,62 @@ class ItemService:
         return Item.query.filter_by(id=item_id, is_current_version=True).first()
 
     @staticmethod
-    def get_items_for_display(filters=None):
+    def find_parent_definition_by_id(item_id):
+        """Fetches an item by ID, expecting it to be an active parent item (parent_id == -2). 
+        Does not strictly require is_current_version=True for the parent placeholder itself.
+        """
+        current_app.logger.info(f"[ItemService.find_parent_definition_by_id] Searching for parent definition with ID: {item_id}")
+        item = Item.query.filter_by(id=item_id, parent_id=-2, is_active=True).first()
+        if item:
+            current_app.logger.info(f"[ItemService.find_parent_definition_by_id] Found parent item: ID={item.id}, Title='{item.title}', parent_id={item.parent_id}, is_active={item.is_active}")
+        else:
+            current_app.logger.warning(f"[ItemService.find_parent_definition_by_id] No active parent item with parent_id=-2 found for ID: {item_id}")
+        return item
+
+    @staticmethod
+    def get_items_for_display(filters=None, limit=None):
         base_query = Item.query.filter_by(is_current_version=True, is_active=True)
 
-        # Proceed if filters dict is not None and has at least one non-empty (non-None, non-whitespace) value
+        query_to_execute = None # Will hold the final query
+
         if filters and any(str(val).strip() for val in filters.values()):
             sku_filter = filters.get('sku')
-            title_query_filter = filters.get('title_query') # This is the general search term from the input
+            title_query_filter = filters.get('title_query')
 
-            # Priority 1: Exact SKU match.
-            # If sku_filter is provided and matches an item exactly, return that item.
-            # This allows finding any item (including variants) by its exact SKU.
             if sku_filter and str(sku_filter).strip():
                 exact_sku_item = base_query.filter(Item.sku == sku_filter).first()
                 if exact_sku_item:
+                    # If exact SKU match, we usually want just that one item.
+                    # The concept of 'limit' might not apply or be 1. 
+                    # For now, returning as list of one, ignoring limit here.
                     return [exact_sku_item]
                 
-                # If sku_filter was provided, didn't yield an exact match, 
-                # and title_query_filter is also empty or not provided,
-                # it implies an SKU-only search that failed. Return empty.
                 if not (title_query_filter and str(title_query_filter).strip()):
-                    return []
+                    return [] # SKU-only search failed
             
-            # If we reach here, it means either:
-            # 1. sku_filter was not provided (or was empty).
-            # 2. sku_filter was provided but found no exact match, AND title_query_filter is present and non-empty.
-            # In these cases, we proceed with a general search using title_query_filter on non-variant items.
-            # This search will look in both title and SKU fields using ILIKE.
-
-            # General search is constrained to parent/standalone items.
-            query = base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2))
+            # General search (title_query_filter is present or SKU search failed but title_query is present)
+            # This search is constrained to parent items (parent_id == -2) or standalone items (parent_id == -1)
+            # It should NOT return variants directly in this general search, variants are fetched separately.
+            active_query = base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2))
 
             if title_query_filter and str(title_query_filter).strip():
                 search_term = f"%{str(title_query_filter).strip()}%"
-                query = query.filter(
+                active_query = active_query.filter(
                     db.or_(
                         Item.title.ilike(search_term),
-                        Item.sku.ilike(search_term) # General search includes SKU with ilike
+                        Item.sku.ilike(search_term)
                     )
                 )
-            # If title_query_filter is effectively empty at this stage, the query remains filtered only by parent_id.
-            # This results in listing all parent/standalone items, which is consistent with an empty general search query.
+            query_to_execute = active_query.order_by(Item.title)
 
-            return query.order_by(Item.title).all()
-
-        else: # No filters, or filters were present but all values were effectively empty.
+        else: # No filters, or filters were effectively empty
             # Default to showing all standalone or parent items.
-            return base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2)).order_by(Item.title).all()
+            query_to_execute = base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2)).order_by(Item.title)
+
+        if query_to_execute is not None and limit is not None and isinstance(limit, int) and limit > 0:
+            query_to_execute = query_to_execute.limit(limit)
+        
+        return query_to_execute.all() if query_to_execute is not None else []
 
     @staticmethod
     def get_variants_for_parent(parent_item_id):
@@ -153,6 +162,15 @@ class ItemService:
             is_current_version=True, 
             is_active=True
         ).order_by(Item.title).all()
+
+    @staticmethod
+    def has_active_current_variants(parent_item_id):
+        """Checks if a parent item has any active, current variants."""
+        return db.session.query(Item.id).filter_by(
+            parent_id=parent_item_id, 
+            is_current_version=True, 
+            is_active=True
+        ).first() is not None
 
     @staticmethod
     def update_item(item_id, data, image_files=None):
@@ -303,19 +321,51 @@ class ItemService:
 
     @staticmethod
     def delete_item(item_id):
-        # This should probably mark all versions of an SKU as inactive rather than deleting, 
-        # or handle parent_id references carefully if it's a parent item.
-        # For now, let's mark the current version as inactive.
-        item = Item.query.get(item_id)
-        if not item or not item.is_current_version:
-            return False, "Item not found or not current version."
+        item_to_delete = Item.query.get(item_id)
+        if not item_to_delete:
+            return False, "Item not found."
+        # If you want to restrict deletion to only current_version items, uncomment next line
+        # if not item_to_delete.is_current_version:
+        #     return False, "Item not found or not current version."
+
         try:
-            item.is_active = False
-            item.is_current_version = False # Or handle how deletion affects versioning
+            original_parent_id_of_deleted_item = item_to_delete.parent_id
+            original_item_id = item_to_delete.id # for logging clarity
+
+            item_to_delete.is_active = False
+            item_to_delete.is_current_version = False 
+            db.session.add(item_to_delete)
+
+            parent_updated_to_standalone = False
+            if original_parent_id_of_deleted_item and original_parent_id_of_deleted_item > 0:
+                # This item was a variant. Check its parent.
+                parent_item_object = Item.query.get(original_parent_id_of_deleted_item)
+                if parent_item_object and parent_item_object.parent_id == -2: 
+                    # The parent is indeed a 'parent placeholder' item.
+                    # Check for other active, current variants of this parent.
+                    # The item being deleted is now marked is_active=False, is_current_version=False,
+                    # so it won't be included in this check.
+                    has_other_active_current_variants = Item.query.filter(
+                        Item.parent_id == original_parent_id_of_deleted_item,
+                        Item.is_active == True,
+                        Item.is_current_version == True
+                    ).first() is not None
+
+                    if not has_other_active_current_variants:
+                        parent_item_object.parent_id = -1 # Convert parent to standalone
+                        db.session.add(parent_item_object)
+                        parent_updated_to_standalone = True
+                        current_app.logger.info(f"Parent item ID {parent_item_object.id} had its parent_id set to -1 as its last variant (item ID {original_item_id}) was deleted/deactivated.")
+            
             db.session.commit()
+            msg = f"Item {original_item_id} marked as inactive/non-current."
+            if parent_updated_to_standalone:
+                msg += f" Parent {original_parent_id_of_deleted_item} updated to standalone."
+            current_app.logger.info(msg)
             return True, None
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f"Error in delete_item for item ID {item_id}: {e}")
             return False, str(e)
 
     @staticmethod

@@ -208,11 +208,19 @@ export async function searchItems() {
                     currentlySelected.classList.remove('selected');
                 }
                 itemDiv.classList.add('selected');
-                // Remove selection after a short delay or after action
-                // For now, let it persist until next search or different selection
 
                 if (item.parent_id === -2) { // Is a parent item
-                    openVariantSelectionModal(item);
+                    // Define the callback for adding to cart
+                    const addToCartCallback = (selectedVariant) => {
+                        if (selectedVariant && selectedVariant.id && selectedVariant.price !== null && selectedVariant.price !== undefined) {
+                            addItemToCart(selectedVariant.id, selectedVariant.price);
+                            showToast(`${selectedVariant.title} added to cart.`, 'success');
+                        } else {
+                            showToast('Selected variant cannot be added to cart (missing ID or price).', 'warning');
+                        }
+                    };
+                    // Call openVariantSelectionModal with the item, the callback, and config
+                    openVariantSelectionModal(item, addToCartCallback, { showAddParentButton: false, actionButtonText: "Add to Cart" });
                 } else if (item.price !== null && item.price !== undefined) {
                     addItemToCart(item.id, item.price);
                 } else {
@@ -250,38 +258,106 @@ export function closeImagePreviewModal() {
 }
 
 // --- Variant Selection Modal ---
-export async function openVariantSelectionModal(parentItem) {
+export async function openVariantSelectionModal(parentItem, onItemSelectedCallback, config = {}) {
     if (!variantSelectionModal || !variantModalTitle || !variantListContainer) {
         console.error("Variant modal elements not found");
+        showToast("Error: Variant modal UI not available.", "error");
         return;
     }
 
-    variantModalTitle.textContent = `Select Variant for ${parentItem.title}`;
-    variantListContainer.innerHTML = '<p>Loading variants...</p>';
+    const modalTitlePrefix = config.modalTitlePrefix || "Select Variant for ";
+    const actionButtonText = config.actionButtonText || "Add to Cart";
+    const showAddParentButton = config.showAddParentButton !== undefined ? config.showAddParentButton : false; // Default to false if not specified
+
+    variantModalTitle.textContent = `${modalTitlePrefix}${parentItem.title}`;
+    variantListContainer.innerHTML = ''; // Clear previous content immediately
+
+    // Optionally, add a button to select the parent item itself
+    if (showAddParentButton) {
+        const parentItemDiv = document.createElement('div');
+        parentItemDiv.className = 'variant-item parent-item-selection'; // Add a distinct class for styling if needed
+        parentItemDiv.innerHTML = `
+            <strong>${parentItem.title}</strong> (SKU: ${parentItem.sku || 'N/A'}) - Parent
+            <p><em>${parentItem.description ? (parentItem.description.length > 70 ? parentItem.description.substring(0, 67) + '...' : parentItem.description) : 'Main product/category.'}</em></p>
+            <button class="select-parent-item-btn btn btn-info">${actionButtonText} Parent</button>
+        `;
+        parentItemDiv.querySelector('.select-parent-item-btn').addEventListener('click', () => {
+            if (onItemSelectedCallback && typeof onItemSelectedCallback === 'function') {
+                onItemSelectedCallback({
+                    id: parentItem.id,
+                    title: parentItem.title,
+                    price: parentItem.price,
+                    sku: parentItem.sku,
+                    parent_id: parentItem.parent_id // which is -2 for a parent
+                });
+            }
+            closeVariantSelectionModal();
+        });
+        variantListContainer.appendChild(parentItemDiv);
+        const hr = document.createElement('hr');
+        variantListContainer.appendChild(hr);
+    }
+    
+    const loadingP = document.createElement('p');
+    loadingP.textContent = 'Loading variants...';
+    variantListContainer.appendChild(loadingP);
+    
     variantSelectionModal.style.display = 'block';
 
-    const variants = await apiCall(`/items/${parentItem.id}/variants`);
-    variantListContainer.innerHTML = '';
+    try {
+        const variants = await apiCall(`/items/${parentItem.id}/variants`);
+        loadingP.remove(); // Remove "Loading variants..."
 
-    if (variants && variants.length > 0) {
-        variants.forEach(variant => {
-            const variantDiv = document.createElement('div');
-            variantDiv.className = 'variant-item';
-            variantDiv.innerHTML = `
-                <strong>${variant.title}</strong> (SKU: ${variant.sku}) - $${variant.price ? variant.price.toFixed(2) : 'N/A'}<br>
-                Stock: ${variant.is_stock_tracked ? variant.stock_quantity : 'Not Tracked'}
-                <button class="add-variant-to-cart-btn" data-variant-id="${variant.id}" data-variant-price="${variant.price}">Add to Cart</button>
-            `;
-            variantDiv.querySelector('.add-variant-to-cart-btn').addEventListener('click', () => {
-                addItemToCart(variant.id, variant.price);
-                closeVariantSelectionModal();
+        if (variants && variants.length > 0) {
+            variants.forEach(variant => {
+                const variantDiv = document.createElement('div');
+                variantDiv.className = 'variant-item';
+                const priceDisplay = (typeof variant.price === 'number') ? variant.price.toFixed(2) : 'N/A';
+                variantDiv.innerHTML = `
+                    <strong>${variant.title}</strong> (SKU: ${variant.sku || 'N/A'}) - $${priceDisplay}<br>
+                    Stock: ${variant.is_stock_tracked ? variant.stock_quantity : 'Not Tracked'}
+                    <button class="select-variant-btn btn btn-primary">${actionButtonText}</button>
+                `;
+                const selectButton = variantDiv.querySelector('.select-variant-btn');
+                
+                // DEBUGGING: Log if the callback is available here
+                if (typeof onItemSelectedCallback !== 'function') {
+                    console.warn('VariantSelectionModal: onItemSelectedCallback is NOT a function when setting up variant button for:', variant.title);
+                }
+
+                selectButton.addEventListener('click', () => {
+                    if (onItemSelectedCallback && typeof onItemSelectedCallback === 'function') {
+                        const itemDataForCallback = {
+                            id: variant.id,
+                            title: variant.title,
+                            price: variant.price,
+                            sku: variant.sku,
+                            parent_id: variant.parent_id
+                        };
+                        // DEBUGGING: Log the data being sent to the callback
+                        console.log('VariantSelectionModal: Calling onItemSelectedCallback with:', itemDataForCallback);
+                        onItemSelectedCallback(itemDataForCallback);
+                    } else {
+                        console.error('VariantSelectionModal: onItemSelectedCallback is missing or not a function on click for variant:', variant.title);
+                        showToast('Action could not be performed for variant.', 'error');
+                    }
+                    closeVariantSelectionModal();
+                });
+                variantListContainer.appendChild(variantDiv);
             });
-            variantListContainer.appendChild(variantDiv);
-        });
-    } else if (variants) {
-        variantListContainer.innerHTML = '<p>No variants available for this item.</p>';
-    } else {
-        variantListContainer.innerHTML = '<p>Error loading variants. Please try again.</p>';
+        } else if (variants) { // variants is an empty array
+            variantListContainer.appendChild(document.createTextNode('No variants available for this item.'));
+        } else { // variants is null/undefined (error handled by apiCall)
+             variantListContainer.appendChild(document.createTextNode('Could not load variants.'));
+        }
+    } catch (error) {
+        console.error("Error fetching or displaying variants:", error);
+        loadingP.remove();
+        const errorP = document.createElement('p');
+        errorP.textContent = 'Error loading variants. Please try again.';
+        errorP.style.color = 'red';
+        variantListContainer.appendChild(errorP);
+        showToast("Failed to load variants.", "error");
     }
 }
 
@@ -593,18 +669,27 @@ export async function handleItemClick(itemId, itemTitle, itemPrice, itemSku, par
             title: itemTitle,
             price: itemPrice, // May be null or 0 for parent items
             sku: itemSku,
-            // Variants are not passed here, openVariantSelectionModal will fetch them if needed
-            // or use cached ones based on its own logic using parentItem.id
+            parent_id: parentId // explicitly pass -2
         };
-        await openVariantSelectionModal(parentItem);
+        // Define the callback for adding to cart
+        const addToCartCallback = (selectedVariant) => {
+            if (selectedVariant && selectedVariant.id && selectedVariant.price !== null && selectedVariant.price !== undefined) {
+                addItemToCart(selectedVariant.id, selectedVariant.price);
+                showToast(`${selectedVariant.title} added to cart.`, 'success');
+            } else {
+                showToast('Selected variant cannot be added to cart (missing ID or price).', 'warning');
+            }
+        };
+        // Call openVariantSelectionModal with the parentItem, the callback, and config
+        // For this context (clicking a Quick Add dashboard item), we don't want to offer adding parent again, just its variants to cart.
+        await openVariantSelectionModal(parentItem, addToCartCallback, { showAddParentButton: false, actionButtonText: "Add to Cart" });
     } else {
-        // This case should ideally be handled by the caller in app.js (direct addItemToCart)
-        // but as a fallback, if it's not a parent, try to add to cart if price is valid.
+        // This is a simple item (not a parent) clicked from Quick Add dashboard
         if (itemPrice !== null && itemPrice !== undefined) {
             addItemToCart(itemId, itemPrice);
             showToast(`${itemTitle} added to cart.`, 'success');
         } else {
-            showToast(`Price missing for ${itemTitle}. Cannot add to cart or open variants.`, 'error');
+            showToast(`Price missing for ${itemTitle}. Cannot add to cart.`, 'error');
             console.error('handleItemClick called for non-parent item without price:', { itemId, itemTitle, itemPrice, itemSku, parentId });
         }
     }

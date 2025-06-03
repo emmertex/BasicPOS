@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.services.item_service import ItemService
 from app.services.image_service import ImageService # Import ImageService
 from app.models.item import Item # Import Item to assist with serialization if needed
@@ -25,6 +25,12 @@ def item_to_dict(item):
         'is_active': item.is_active,
         'photos': [] # Initialize photos list
     }
+
+    # If item is marked as a parent (parent_id == -2), check if it actually has active, current variants.
+    # If not, present it as a standalone item (parent_id = -1) to the frontend for display logic.
+    if item_details['parent_id'] == -2:
+        if not ItemService.has_active_current_variants(item_details['id']):
+            item_details['parent_id'] = -1 # Override for frontend display
 
     if hasattr(item, 'photos') and item.photos: # Check if photos relationship is loaded and not empty
         for photo in item.photos:
@@ -111,27 +117,40 @@ def get_item_route(item_id):
 @bp.route('/', methods=['GET'])
 def get_all_items_route():
     filters = {}
-    sku_query = request.args.get('sku')
-    title_query = request.args.get('title_query')
+    q_param = request.args.get('q')
+    sku_query = request.args.get('sku') # Keep direct SKU query if needed for other use cases
+    is_current_version = request.args.get('is_current_version', default=True, type=lambda v: v.lower() == 'true') # Handle string 'true'/'false'
+    limit = request.args.get('limit', type=int)
 
+    if q_param:
+        filters['title_query'] = q_param  # Use 'q' for general title/SKU search in service
     if sku_query:
-        filters['sku'] = sku_query
-    if title_query:
-        filters['title_query'] = title_query
+        filters['sku'] = sku_query # Allow specific SKU search to override/coexist if backend logic supports it
     
-    items = ItemService.get_items_for_display(filters=filters if filters else None)
+    # The ItemService.get_items_for_display already filters by is_current_version=True and is_active=True by default
+    # So, explicitly passing is_current_version from request args to filters might be redundant unless service changes.
+    # For now, we'll rely on service default. If specific control is needed, add to filters:
+    # filters['is_current_version'] = is_current_version 
+
+    items = ItemService.get_items_for_display(filters=filters if filters else None, limit=limit)
     return jsonify([item_to_dict(item) for item in items]), 200
 
 @bp.route('/<int:parent_item_id>/variants', methods=['GET'])
 def get_item_variants_route(parent_item_id):
-    # First, check if the parent item itself exists and is indeed a parent (parent_id == -2)
-    parent_item = ItemService.get_item_by_id(parent_item_id)
+    current_app.logger.info(f"[get_item_variants_route] Received request for variants for parent_item_id: {parent_item_id}")
+    # Use find_parent_definition_by_id to be less strict on is_current_version for the parent placeholder
+    parent_item = ItemService.find_parent_definition_by_id(parent_item_id)
     if not parent_item:
-        return jsonify({"error": "Parent item not found"}), 404
-    if parent_item.parent_id != -2:
-        return jsonify({"error": "Item is not a parent item"}), 400
+        current_app.logger.warning(f"[get_item_variants_route] Parent item definition not found for ID: {parent_item_id} by ItemService.find_parent_definition_by_id")
+        # This means no active item exists with this ID and parent_id = -2
+        return jsonify({"error": "Parent item definition not found or not marked as a parent (-2)"}), 404
+    # The check `parent_item.parent_id != -2` is now redundant due to the new service method query
 
+    current_app.logger.info(f"[get_item_variants_route] Parent item found: {parent_item.title}. Fetching variants.")
     variants = ItemService.get_variants_for_parent(parent_item_id)
+    # get_variants_for_parent already filters for active, current variants.
+    # If variants list is empty, it's handled by frontend. This is fine.
+    current_app.logger.info(f"[get_item_variants_route] Found {len(variants) if variants else 0} variants for parent ID: {parent_item_id}")
     return jsonify([item_to_dict(variant) for variant in variants]), 200
 
 @bp.route('/<int:item_id>', methods=['PUT'])

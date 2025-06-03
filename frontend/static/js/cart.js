@@ -161,19 +161,49 @@ export function updateCartCustomerDisplay(customer) {
             `;
             document.getElementById('change-cart-customer-btn')?.addEventListener('click', () => {
                 if (state.currentSale && state.currentSale.id) {
-                    apiCall(`/sales/${state.currentSale.id}`, 'PUT', { customer_id: null }).then(updatedSale => {
-                        if (updatedSale) {
-                            state.currentSale = updatedSale;
-                            state.currentCustomer = null;
-                            updateCartDisplay();
-                            showToast("Customer removed from sale.", "info");
-                        } else {
-                            showToast("Failed to remove customer from sale.", "error");
-                        }
-                    });
-                } else {
+                    // Store customer and sale details for potential revert or logging
+                    const previousCustomer = state.currentCustomer;
+                    const saleId = state.currentSale.id;
+
+                    // --- Primary Action: Clear customer locally --- 
                     state.currentCustomer = null;
-                    updateCartDisplay();
+                    if (state.currentSale) { // Ensure currentSale exists before modifying it
+                        state.currentSale.customer = null;
+                        state.currentSale.customer_id = null;
+                    }
+                    updateCartDisplay(); // Refresh UI to show customer removed locally
+                    // --- End of Primary Action ---
+
+                    // --- Secondary Action: Attempt backend update --- 
+                    apiCall(`/sales/${saleId}`, 'PUT', { customer_id: null })
+                        .then(updatedSaleFromServer => {
+                            if (updatedSaleFromServer && updatedSaleFromServer.customer_id === null) {
+                                // Backend confirmed removal. Update local sale state with the full response.
+                                state.currentSale = updatedSaleFromServer; 
+                                // state.currentCustomer is already null.
+                                showToast("Customer removed from sale and server updated.", "info");
+                            } else {
+                                // Backend update failed or didn't confirm removal.
+                                showToast("Failed to update customer on server. Customer removed from local cart view.", "warning");
+                                console.warn('Backend failed to remove customer from sale, but local view is cleared.', updatedSaleFromServer);
+                                // Optionally, if currentSale was updated by backend with stale customer data, re-nullify locally:
+                                if (state.currentSale && state.currentSale.customer_id !== null) {
+                                    state.currentSale.customer = null;
+                                    state.currentSale.customer_id = null;
+                                    updateCartDisplay(); // Re-render if server sent back old customer data
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            showToast("Error contacting server to remove customer. Customer removed from local cart view.", "error");
+                            // state.currentCustomer is already null.
+                            console.error('Error in API call to remove customer:', error);
+                        });
+                } else {
+                    // No current sale, just a selected customer for a potential new sale
+                    state.currentCustomer = null;
+                    updateCartDisplay(); // This will re-render and show "No customer"
+                    showToast("Selected customer cleared.", "info");
                 }
             });
         } else {
