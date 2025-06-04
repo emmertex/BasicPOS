@@ -477,7 +477,7 @@ button:not([class]) {
 /* Modal Styles */
 .modal {
     position: fixed; /* Stay in place */
-    z-index: 100; /* Sit on top */
+    z-index: 1000; /* Example: ensure it's on top */
     left: 0;
     top: 0;
     width: 100%; /* Full width */
@@ -770,6 +770,16 @@ button:not([class]) {
 .modal {
     /* ... existing modal styles ... */
     z-index: 1000; /* Example: ensure it's on top */
+}
+
+/* Specific z-index for Combination Item Modal */
+#combination-item-modal {
+    z-index: 1050; /* Higher than general modals, but lower than variant selection */
+}
+
+/* Specific z-index for Variant Selection Modal to ensure it's on top of other modals */
+#variant-selection-modal {
+    z-index: 1060; /* Higher than combination item modal */
 }
 
 /* Toast Notification Styles */
@@ -1653,4 +1663,126 @@ button {
 
 .qai-search-result:last-child {
     border-bottom: none;
+}
+
+/* Combination Item Styles */
+.combination-item-badge {
+    background-color: #6c757d;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+.item-search-result-rich.combination-item {
+    border-left: 4px solid #6c757d;
+}
+
+.item-search-result-rich.combination-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* Combination Item Modal Styles */
+.combination-components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.combination-component-item {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.combination-component-item .component-info {
+    flex-grow: 1;
+}
+
+.combination-component-item .component-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.combination-component-item .component-quantity {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.combination-component-item .remove-component {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+.combination-component-item .remove-component:hover {
+    background-color: #c82333;
+}
+
+.add-component-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.add-component-controls select {
+    flex-grow: 1;
+}
+
+.add-component-controls input[type="number"] {
+    width: 100px;
+}
+
+#combination-components-section {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+#combination-components-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+}
+
+#combination-item-modal .search-results .search-result-item {
+    max-width: 100%;
+    word-wrap: break-word;
+    white-space: normal;
+    padding: 8px 12px; /* Match QAI padding */
+    border-bottom: 1px solid #eee;
+    cursor: pointer; /* Keep pointer cursor */
+    background: white;
+    transition: background-color 0.2s ease-in-out; /* Match QAI transition */
+    /* Remove color and border-left from base */
+}
+
+#combination-item-modal .search-results .search-result-item:hover {
+    background-color: #f0f0f0; /* Match QAI hover background */
+    color: inherit; /* Inherit color, don't force blue */
+    border-left: none; /* Remove border-left on hover if not selected, to match QAI */
+    /* cursor: pointer; /* Already set in base */
+}
+
+#combination-item-modal .search-results .search-result-item.selected {
+    background-color: #e0eafc; /* Match QAI selected background */
+    color: inherit; /* Inherit color, don't force white */
+    font-weight: bold;
+    border-left: 3px solid #4a80f5; /* Match QAI selected border */
+}
+
+#combination-item-modal .add-component-controls {
+/* ... existing code ... */
 }

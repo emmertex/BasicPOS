@@ -94,8 +94,8 @@ export async function createNewSale(status = 'Open', customerId = null, customer
 
 export async function addItemToCart(itemId, price) {
     console.log("[cart.js] addItemToCart called with itemId:", itemId, "and price:", price);
-    console.log("Attempting to add item to cart:", itemId);
-    let saleCreatedInThisCall = false;
+    // console.log("Attempting to add item to cart:", itemId); // Less verbose
+    // let saleCreatedInThisCall = false; // Not strictly needed if createNewSale handles state correctly
     if (!state.currentSale || (state.currentSale.status !== 'Open' && state.currentSale.status !== 'Quote')) {
         console.log("No active 'Open' or 'Quote' sale, creating a new one.");
         const notesForNewSale = saleCustomerNotesTextarea ? saleCustomerNotesTextarea.value : null;
@@ -106,7 +106,7 @@ export async function addItemToCart(itemId, price) {
             showToast("Failed to create a new sale to add item.", "error");
             return;
         }
-        saleCreatedInThisCall = true; // Flag that a new sale was made
+        // saleCreatedInThisCall = true; 
     }
 
     if (!state.currentSale || !state.currentSale.id) {
@@ -114,23 +114,85 @@ export async function addItemToCart(itemId, price) {
         console.error("state.currentSale or state.currentSale.id is missing before adding item:", state.currentSale);
         return;
     }
-    
-    const saleItemData = {
-        item_id: itemId,
-        quantity: 1,
-        price_at_sale: price // 'price' here is the item.price passed into addItemToCart
-    };
 
-    const updatedSale = await apiCall(`/sales/${state.currentSale.id}/items`, 'POST', saleItemData);
+    const saleId = state.currentSale.id;
+    let itemProcessed = false; // Flag to check if any item/component was processed
 
-    if (updatedSale) {
-        state.currentSale = updatedSale;
-        console.log('Item added, updated sale:', state.currentSale);
-        updateCartDisplay();
-        collapseItemSearchResults();
-    } else {
-        showToast("Failed to add item to cart.", "error");
+    // Fetch the base item details to check its parent_id
+    const itemDetails = await apiCall(`/items/${itemId}`);
+    if (!itemDetails) {
+        showToast(`Failed to fetch details for item ID ${itemId}. Cannot add to cart.`, 'error');
+        return;
     }
+
+    if (itemDetails.parent_id === -3) { // Combination Item
+        const combinationItemDetails = await apiCall(`/combination-items/${itemId}`);
+        if (combinationItemDetails && combinationItemDetails.success && combinationItemDetails.components && combinationItemDetails.components.length > 0) {
+            for (const component of combinationItemDetails.components) {
+                const componentFullDetails = await apiCall(`/items/${component.item_id}`);
+                if (componentFullDetails && componentFullDetails.price !== null && componentFullDetails.price !== undefined) {
+                    const existingCartItem = state.currentSale.sale_items.find(si => si.item_id === component.item_id);
+                    if (existingCartItem) {
+                        // Item exists, update quantity
+                        const newQuantity = existingCartItem.quantity + component.quantity;
+                        await apiCall(`/sales/${saleId}/items/${existingCartItem.id}`, 'PUT', { quantity: newQuantity });
+                    } else {
+                        // Item does not exist, add new line item
+                        const saleItemData = {
+                            item_id: component.item_id,
+                            quantity: component.quantity, 
+                            price_at_sale: componentFullDetails.price 
+                        };
+                        await apiCall(`/sales/${saleId}/items`, 'POST', saleItemData);
+                    }
+                    itemProcessed = true;
+                } else {
+                    showToast(`Price missing for component ${component.title || ('ID: ' + component.item_id)}. Not added.`, 'warning');
+                }
+            }
+            if (itemProcessed) showToast(`${itemDetails.title} (components) added/updated in cart.`, 'success');
+            
+        } else {
+            showToast(`Could not retrieve valid components for ${itemDetails.title}. Item not added.`, 'error');
+            console.error("Failed to get components for combo. Details:", combinationItemDetails);
+            return; // Exit if combo components cannot be processed
+        }
+    } else { // Regular Item or Variant (parent_id != -3)
+        if (price === null || price === undefined) {
+            showToast(`Price missing for ${itemDetails.title}. Cannot add to cart.`, 'error');
+            return;
+        }
+        const existingCartItem = state.currentSale.sale_items.find(si => si.item_id === itemId);
+        if (existingCartItem) {
+            // Item exists, update quantity (typically add 1 for a standard item click)
+            const newQuantity = existingCartItem.quantity + 1;
+            await apiCall(`/sales/${saleId}/items/${existingCartItem.id}`, 'PUT', { quantity: newQuantity });
+        } else {
+            // Item does not exist, add new line item
+            const saleItemData = {
+                item_id: itemId,
+                quantity: 1, 
+                price_at_sale: price 
+            };
+            await apiCall(`/sales/${saleId}/items`, 'POST', saleItemData);
+        }
+        itemProcessed = true;
+        showToast(`${itemDetails.title} added/updated in cart.`, 'success');
+    }
+
+    if (itemProcessed) {
+        // Refresh the entire sale state from the server after modifications
+        const updatedSale = await apiCall(`/sales/${saleId}`);
+        if (updatedSale) {
+            state.currentSale = updatedSale;
+            updateCartDisplay();
+            collapseItemSearchResults(); // Assuming this is desired after adding any item
+        } else {
+            showToast("Cart updated, but failed to refresh sale details from server.", "warning");
+            // Potentially try to update cart display with local state if server refresh fails
+        }
+    }
+    // No explicit return here, function completes
 }
     
 export async function loadSaleIntoCart(saleId) {

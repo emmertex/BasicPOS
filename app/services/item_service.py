@@ -112,31 +112,39 @@ class ItemService:
     @staticmethod
     def get_items_for_display(filters=None, limit=None):
         base_query = Item.query.filter_by(is_current_version=True, is_active=True)
+        items_to_return = [] # Initialize to ensure it's always a list
 
-        query_to_execute = None # Will hold the final query
+        title_query_filter = filters.get('title_query') if filters else None
+        search_term = f"%{str(title_query_filter).strip()}%" if title_query_filter and str(title_query_filter).strip() else None
 
-        if filters and any(str(val).strip() for val in filters.values()):
-            sku_filter = filters.get('sku')
-            title_query_filter = filters.get('title_query')
+        # Determine if an exact SKU search is being performed
+        sku_filter = filters.get('sku') if filters else None
+        if sku_filter and str(sku_filter).strip():
+            exact_sku_item = base_query.filter(Item.sku == sku_filter).first()
+            if exact_sku_item:
+                return [exact_sku_item] # Exact SKU match returns immediately
+            if not search_term: # If only SKU was provided and not found, return empty
+                return []
 
-            if sku_filter and str(sku_filter).strip():
-                exact_sku_item = base_query.filter(Item.sku == sku_filter).first()
-                if exact_sku_item:
-                    # If exact SKU match, we usually want just that one item.
-                    # The concept of 'limit' might not apply or be 1. 
-                    # For now, returning as list of one, ignoring limit here.
-                    return [exact_sku_item]
-                
-                if not (title_query_filter and str(title_query_filter).strip()):
-                    return [] # SKU-only search failed
+        # If no search term by this point, and no exact SKU match, behavior might depend on include_variants
+        # For now, assume a search term is generally expected if not an exact SKU hit.
+
+        include_variants_flag = filters.get('include_variants', False) if filters else False
+
+        if include_variants_flag:
+            # Path for 'Create Combination Item' modal (include_variants == true)
+            # Should NOT auto-expand parent variants here.
+            # Returns direct matches: standalones (-1), parents (-2), variants (>0).
+            # Frontend will filter (e.g., show -1, -2) and handle parent selection by opening variant modal.
             
-            # General search (title_query_filter is present or SKU search failed but title_query is present)
-            # This search is constrained to parent items (parent_id == -2) or standalone items (parent_id == -1)
-            # It should NOT return variants directly in this general search, variants are fetched separately.
-            active_query = base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2))
-
-            if title_query_filter and str(title_query_filter).strip():
-                search_term = f"%{str(title_query_filter).strip()}%"
+            active_query = base_query.filter(
+                db.or_(
+                    Item.parent_id == -1,  # Standalone items
+                    Item.parent_id == -2,  # Parent items
+                    Item.parent_id > 0     # Variants
+                )
+            )
+            if search_term:
                 active_query = active_query.filter(
                     db.or_(
                         Item.title.ilike(search_term),
@@ -144,15 +152,108 @@ class ItemService:
                     )
                 )
             query_to_execute = active_query.order_by(Item.title)
+            if limit is not None and isinstance(limit, int) and limit > 0:
+                query_to_execute = query_to_execute.limit(limit)
+            items_to_return = query_to_execute.all()
 
-        else: # No filters, or filters were effectively empty
-            # Default to showing all standalone or parent items.
-            query_to_execute = base_query.filter(db.or_(Item.parent_id == -1, Item.parent_id == -2)).order_by(Item.title)
+        else:
+            # Path for 'Main Item Search' (include_variants == false or not provided)
+            # Should auto-expand parent items into their variants if parent matches search.
+            # Also include matching standalones (-1) and combos (-3).
+            
+            direct_matches_list = []
+            if search_term:
+                # Initial query for items directly matching by title or SKU
+                # This includes standalones (-1), parents (-2), variants (>0), combos (-3) initially.
+                matching_items_query = base_query.filter(
+                    db.or_(
+                        Item.title.ilike(search_term),
+                        Item.sku.ilike(search_term)
+                    )
+                )
+                direct_matches_list = matching_items_query.all()
+            elif not sku_filter : # No search term and no SKU filter means get all relevant items
+                 # Show standalones (-1), parents (-2), combos (-3) by default without search term
+                all_items_query = base_query.filter(
+                     db.or_(
+                        Item.parent_id == -1,
+                        Item.parent_id == -2,
+                        Item.parent_id == -3
+                    )
+                ).order_by(Item.title)
+                if limit is not None and isinstance(limit, int) and limit > 0:
+                    all_items_query = all_items_query.limit(limit)
+                return all_items_query.all()
 
-        if query_to_execute is not None and limit is not None and isinstance(limit, int) and limit > 0:
-            query_to_execute = query_to_execute.limit(limit)
+
+            # Process direct matches: separate into displayable items and parents whose variants we need
+            items_for_display = []
+            matched_ids = set()
+            parent_ids_to_fetch_variants_for = set()
+
+            for item in direct_matches_list:
+                if item.id in matched_ids:
+                    continue
+                
+                # Add combos (-3) and standalones (-1) directly
+                if item.parent_id == -3 or item.parent_id == -1:
+                    items_for_display.append(item)
+                    matched_ids.add(item.id)
+                # If a parent (-2) matches directly, add it and mark for variant fetching
+                elif item.parent_id == -2:
+                    items_for_display.append(item) # Add the parent itself
+                    matched_ids.add(item.id)
+                    parent_ids_to_fetch_variants_for.add(item.id)
+                # If a variant (>0) matches directly, add it. Also find its parent if that parent wasn't already processed.
+                elif item.parent_id > 0:
+                    items_for_display.append(item)
+                    matched_ids.add(item.id)
+                    # If this variant's parent also matches the search term (or should be included),
+                    # it would have been caught as a parent_id == -2.
+                    # For simplicity here, we are not adding the parent if only the variant matched,
+                    # unless the parent *also* directly matched the search_term.
+                    # The more robust parent-variant expansion is below.
+
+            # Find additional parent items (-2) that match the search term,
+            # whose variants should be fetched, even if the parent wasn't in direct_matches_list yet
+            # (e.g. if search term was very specific to a variant of a non-matching parent title) -
+            # No, this is simpler: if a parent title matches, fetch its variants.
+            if search_term:
+                additional_matching_parents_query = base_query.filter(
+                    Item.parent_id == -2,
+                    db.or_(
+                        Item.title.ilike(search_term),
+                        Item.sku.ilike(search_term)
+                    )
+                )
+                for parent in additional_matching_parents_query.all():
+                    parent_ids_to_fetch_variants_for.add(parent.id)
+                    if parent.id not in matched_ids: # Add parent if not already there
+                        items_for_display.append(parent)
+                        matched_ids.add(parent.id)
+            
+            # Fetch and add variants for all identified parent IDs
+            if parent_ids_to_fetch_variants_for:
+                variants_query = Item.query.filter(
+                    Item.parent_id.in_(list(parent_ids_to_fetch_variants_for)),
+                    Item.is_current_version == True,
+                    Item.is_active == True
+                )
+                for variant in variants_query.all():
+                    if variant.id not in matched_ids:
+                        items_for_display.append(variant)
+                        matched_ids.add(variant.id)
+            
+            # Sort the final list
+            items_for_display.sort(key=lambda x: (x.title or "").lower())
+            
+            # Apply limit if specified (after all items are gathered and sorted)
+            if limit is not None and isinstance(limit, int) and limit > 0:
+                items_to_return = items_for_display[:limit]
+            else:
+                items_to_return = items_for_display
         
-        return query_to_execute.all() if query_to_execute is not None else []
+        return items_to_return
 
     @staticmethod
     def get_variants_for_parent(parent_item_id):

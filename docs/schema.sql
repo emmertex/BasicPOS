@@ -122,3 +122,26 @@ CREATE TABLE quick_add_items (
     PRIMARY KEY (id),
     FOREIGN KEY(item_id) REFERENCES Items (id)
 );
+
+-- Combination Items Table
+CREATE TABLE combination_items (
+    id INTEGER NOT NULL AUTO_INCREMENT,
+    item_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY(item_id) REFERENCES Items (id) ON DELETE CASCADE
+);
+
+-- Combination Item Components Table
+CREATE TABLE combination_item_components (
+    id INTEGER NOT NULL AUTO_INCREMENT,
+    combination_item_id INTEGER NOT NULL,
+    component_item_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    FOREIGN KEY(combination_item_id) REFERENCES combination_items (id) ON DELETE CASCADE,
+    FOREIGN KEY(component_item_id) REFERENCES Items (id) ON DELETE CASCADE
+);

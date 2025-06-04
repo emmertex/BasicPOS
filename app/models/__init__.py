@@ -10,6 +10,7 @@ from .sale_item import SaleItem
 from .payment import Payment
 from .quick_add_item import QuickAddItem
 from .category import Category
+from .combination import CombinationItem, CombinationItemComponent
 
 __all__ = [
     'Item',
@@ -19,5 +20,7 @@ __all__ = [
     'SaleItem',
     'Payment',
     'QuickAddItem',
-    'Category'
+    'Category',
+    'CombinationItem',
+    'CombinationItemComponent'
 ] 

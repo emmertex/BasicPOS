@@ -2,6 +2,7 @@ import { apiCall } from './apiService.js';
 import { showToast } from './toastService.js';
 import { state } from './uiState.js';
 import { addItemToCart } from './cart.js'; // For adding items/variants to cart
+import { openCombinationItemModal as openComboModal } from './combinationItemService.js';
 import {
     collapseQuickAddDashboard,
     expandQuickAddDashboard,
@@ -187,7 +188,12 @@ export async function searchItems() {
             if (editButton) {
                 editButton.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    openEditItemForm(item.id);
+                    if (item.parent_id === -3) {
+                        console.log(`Attempting to open combination item modal for editing (Item ID: ${item.id})`);
+                        openComboModal(item.id);
+                    } else {
+                        openEditItemForm(item.id);
+                    }
                 });
             }
 

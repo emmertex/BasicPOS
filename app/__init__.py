@@ -49,6 +49,10 @@ def create_app(config_class=Config):
     from app.routes.print_routes import print_bp
     app.register_blueprint(print_bp)
 
+    # Register Combination Items blueprint
+    from app.routes.combination_items import combination_items_bp
+    app.register_blueprint(combination_items_bp, url_prefix='/api/combination-items')
+
     @app.route('/')
     def serve_index():
         return send_from_directory(frontend_dir_path, 'index.html')

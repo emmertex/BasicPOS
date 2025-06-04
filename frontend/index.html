@@ -60,6 +60,7 @@
                     <button id="item-search-button" class="btn btn-success">Search</button>
                     <button id="item-clear-search-button" class="btn btn-warning" style="margin-left: 5px;">Clear</button> 
                     <button id="open-add-item-modal-button" class="btn btn-primary" style="margin-left: 5px;">Add New Item</button>
+                    <button id="open-combination-item-modal-button" class="btn btn-info" style="margin-left: 5px;">Create Combo Item</button>
                 </div>
                 <div id="item-search-results-container"> <!-- New container for dynamic sizing -->
                     <div id="item-search-results"></div>
@@ -306,6 +307,57 @@
             <button id="submit-item-button" class="btn btn-success" style="margin-top: 20px;">Save Item</button>
             <button id="submit-item-and-add-to-cart-button" class="btn btn-primary" style="margin-top: 20px; margin-left: 10px;">Save & Add to Cart</button>
             <button id="manage-variants-button" class="btn btn-info" style="display: none; margin-top: 10px;">Manage Variants</button>
+        </div>
+    </div>
+
+    <!-- Combination Item Modal -->
+    <div id="combination-item-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-combination-item-modal">&times;</span>
+            <h2 id="combination-item-modal-title">Create Combination Item</h2>
+            <input type="hidden" id="combination-item-id">
+            <div>
+                <label for="combination-item-title">Title:</label>
+                <input type="text" id="combination-item-title" required>
+            </div>
+            <div>
+                <label for="combination-item-description">Description:</label>
+                <textarea id="combination-item-description" rows="3"></textarea>
+            </div>
+
+            <div id="combination-components-section">
+                <h3>Components</h3>
+                <div id="combination-components-list" class="combination-components-grid">
+                    <!-- Components will be added here dynamically -->
+                </div>
+                <div class="add-component-controls">
+                    <div class="search-container">
+                        <input type="text" id="combination-item-search" placeholder="Search for items..." class="form-control">
+                        <div id="combination-item-search-results" class="search-results">
+                            <!-- Search results will appear here -->
+                        </div>
+                    </div>
+                    <input type="number" id="component-quantity" class="form-control" min="1" value="1">
+                    <button id="add-component-button" class="btn btn-primary">Add Component</button>
+                </div>
+            </div>
+
+            <div id="combination-item-images-display-container" style="margin-top: 15px;">
+                <h3>Images</h3>
+                <div id="combination-item-images-list" class="item-images-grid">
+                    <!-- Existing images will be populated here by JS -->
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;" class="drop-zone-container"> 
+                <label for="combination-item-images-upload">Upload New Images (PNG, JPG, GIF):</label>
+                <div id="combination-item-image-drop-zone" class="drop-zone">
+                    <p>Drag & Drop files here or click to Browse</p>
+                    <input type="file" id="combination-item-images-upload" name="images" multiple accept="image/png, image/jpeg, image/gif" style="display: none;">
+                </div>
+            </div>
+
+            <button id="submit-combination-item-button" class="btn btn-success" style="margin-top: 20px;">Save Combination Item</button>
         </div>
     </div>
 

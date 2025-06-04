@@ -48,6 +48,7 @@ import {
     handleManageVariantsClick as serviceHandleManageVariantsClick,
     handleItemClick as serviceHandleItemClick
 } from './itemService.js';
+import { initCombinationItemService } from './combinationItemService.js';
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -55,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initCustomerService(updateCartDisplay, createNewSale, updateCartCustomerDisplay);
     initItemService();
+    initCombinationItemService();
 
     console.log("Item Service Initialized");
 
