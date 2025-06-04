@@ -4,103 +4,92 @@
     <meta charset="UTF-8">
     <title>Label - {{ item.title }}</title>
     <style>
-        /* Dymo 30252 Address Label (approx 1-1/8" x 3-1/2" or 28mm x 89mm) */
-        /* Dymo 30323 Shipping Label (approx 2-1/8" x 4" or 54mm x 101mm) - Targeting this one */
+        /* Dymo 30321 Label (89mm x 38mm) */
         @page {
-            size: 101mm 36mm; /* Width x Height for landscape label - Adjusted Height */
+            size: 89mm 38mm; /* Width x Height for landscape label */
             margin: 0;
         }
         body {
-            width: 101mm;
-            height: 36mm; /* Adjusted Height */
+            width: 89mm;
+            height: 38mm;
             margin: 0;
-            padding: 3mm; /* Small padding inside the label */
+            padding: 2mm; /* Reduced padding for smaller label */
             box-sizing: border-box;
             font-family: Arial, sans-serif;
-            font-size: 10pt; /* Base font size, adjust as needed */
+            font-size: 10pt;
             line-height: 1.2;
             display: flex;
-            overflow: hidden; /* Hide anything that might overflow */
+            overflow: hidden;
         }
         .label-container {
             display: flex;
             width: 100%;
             height: 100%;
-            border: 1px solid #ccc; /* Optional: for visualizing boundaries, remove for actual printing */
+            border: 1px solid #ccc; /* Optional: for visualizing boundaries */
         }
         .pane {
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Center content vertically */
-            align-items: center; /* Center content horizontally */
-            padding: 2mm;
+            padding: 1mm;
             box-sizing: border-box;
-            text-align: center;
             overflow: hidden;
         }
-        .left-pane { /* Approx 1:1 aspect based on new height */
-            flex-basis: 30mm; /* Adjusted based on 36mm height - 2*3mm padding */
-            height: 30mm;     /* Adjusted */
-            align-self: center;
+        .left-pane {
+            flex-basis: 66%; /* 2/3 of the width */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
-        .left-pane img {
+        .right-pane {
+            flex-basis: 33%; /* 1/3 of the width */
+            justify-content: center;
+            align-items: center;
+        }
+        .right-pane img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            border: 1px solid #eee; /* Optional border for image */
-        }
-        .center-pane {
-            flex-grow: 1;
-            padding-left: 3mm;
-            padding-right: 3mm;
-            border-left: 1px dashed #ddd;
-            border-right: 1px dashed #ddd;
         }
         .item-title {
-            font-size: 12pt; /* Larger for title */
+            font-size: 14pt;
             font-weight: bold;
-            margin-bottom: 2mm;
-            word-break: break-word; /* Allow breaking long titles */
+            margin-bottom: 1mm;
+            word-break: break-word;
         }
         .item-sku {
             font-size: 8pt;
             color: #555;
         }
-        .right-pane {
-            flex-basis: 25mm; /* Adjust for price display */
-            justify-content: center;
-            align-items: center; /* Center price */
-        }
         .item-price {
-            font-size: 22pt; /* Increased price font size, adjust as needed */
+            font-size: 32pt;
             font-weight: bold;
             color: #000;
+            margin-top: auto;
         }
 
         @media print {
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .label-container { border: none; } /* No border for actual printing */
-            /* Ensure minimal margins for printing if @page margin:0 doesn't cover all browser defaults */
+            .label-container { border: none; }
         }
     </style>
 </head>
 <body>
     <div class="label-container">
         <div class="pane left-pane">
-            {% if item.primary_photo_url %}
-                <img src="{{ item.primary_photo_url }}" alt="{{ item.title | default('Item Image') }}">
-            {% else %}
-                <span style="font-size:8pt; color:#aaa;">No Image</span>
-            {% endif %}
-        </div>
-        <div class="pane center-pane">
             <div class="item-title">{{ item.title | default('N/A') }}</div>
             <div class="item-sku">SKU: {{ item.sku | default('N/A') }}</div>
-        </div>
-        <div class="pane right-pane">
             <div class="item-price">
                 ${{ "%.2f" | format(item.price if item.price is not none else 0) }}
             </div>
+        </div>
+        <div class="pane right-pane">
+            {% if item.primary_photo_url %}
+                <img src="{{ item.primary_photo_url }}" alt="{{ item.title | default('Item Image') }}">
+            {% else %}
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data={{ item.sku | urlencode }}" 
+                     alt="QR Code for SKU: {{ item.sku }}"
+                     style="width: 100%; height: 100%; object-fit: contain;">
+            {% endif %}
         </div>
     </div>
 </body>
