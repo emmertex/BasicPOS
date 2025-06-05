@@ -249,7 +249,7 @@ Please see attached {document_title_for_email.lower()}.
 Any queries, feel free to contact us.
 
 Thanks,
-{current_app.config.get('MAIL_DEFAULT_SENDER_NAME', 'True Blue Team')}
+{current_app.config.get('MAIL_DEFAULT_SENDER_NAME', 'BasicPOS')}
 """
         # Ensure MAIL_DEFAULT_SENDER_EMAIL is correctly configured in config.py
         sender_email = current_app.config.get('MAIL_DEFAULT_SENDER_EMAIL')
