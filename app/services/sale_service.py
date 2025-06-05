@@ -4,7 +4,7 @@ from app.models.sale_item import SaleItem
 from app.models.item import Item
 from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
-from decimal import Decimal, ROUND_HALF_UP # Import ROUND_HALF_UP for consistent rounding
+from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN # Import ROUND_HALF_UP and ROUND_DOWN
 from flask import current_app # Added for config access
 
 class SaleService:
@@ -165,8 +165,8 @@ class SaleService:
         try:
             if 'quantity' in data:
                 new_quantity = int(data['quantity'])
-                if new_quantity <= 0:
-                     return None, "Quantity must be positive. To remove, use the remove item function."
+                if new_quantity == 0:
+                     return None, "Quantity must be a non-zero integer. To remove an item, use the remove item function."
                 sale_item.quantity = new_quantity
             
             # Discount handling
@@ -295,66 +295,175 @@ class SaleService:
             return False, str(e)
 
     @staticmethod
+    def _get_gst_rate():
+        return Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10'))
+
+    @staticmethod
+    def _calculate_tax_on_net(amount_net, gst_rate_percentage):
+        if amount_net <= 0: # No tax on zero or negative totals
+            return Decimal('0.00')
+        tax = (amount_net * (gst_rate_percentage / Decimal('100'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return tax
+
+    @staticmethod
+    def apply_overall_sale_discount(sale_id, discount_type, discount_value_str, rounding_target=None):
+        sale = Sale.query.get(sale_id)
+        if not sale:
+            return None, "Sale not found."
+
+        if sale.status in ['Paid', 'Void']:
+            return None, f"Cannot apply discount to a sale with status '{sale.status}'."
+
+        try:
+            discount_value = Decimal(discount_value_str if discount_value_str is not None else '0.00')
+        except Exception:
+            return None, "Invalid discount value format."
+
+        subtotal_before_overall_discount = sum(
+            (si.sale_price * si.quantity) for si in sale.sale_items if si.sale_price is not None and si.quantity is not None
+        )
+        subtotal_before_overall_discount = Decimal(subtotal_before_overall_discount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        calculated_discount_amount = Decimal('0.00')
+
+        if discount_type == 'none':
+            sale.overall_discount_type = 'none'
+            sale.overall_discount_value = Decimal('0.00')
+            calculated_discount_amount = Decimal('0.00')
+        elif discount_type == 'percentage':
+            if not (0 <= discount_value <= 100):
+                return None, "Percentage discount must be between 0 and 100."
+            calculated_discount_amount = (subtotal_before_overall_discount * discount_value / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            sale.overall_discount_type = 'percentage'
+            sale.overall_discount_value = discount_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        elif discount_type == 'fixed':
+            if discount_value < 0:
+                return None, "Fixed discount value cannot be negative."
+            calculated_discount_amount = discount_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            # Cap discount at subtotal to prevent negative total from discount alone
+            calculated_discount_amount = min(calculated_discount_amount, subtotal_before_overall_discount)
+            sale.overall_discount_type = 'fixed'
+            sale.overall_discount_value = discount_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        elif discount_type == 'target_total':
+            if discount_value < 0:
+                return None, "Target total cannot be negative."
+            target_total_val = discount_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            # Discount is difference; if target is higher, discount is 0 (no price increase)
+            calculated_discount_amount = max(Decimal('0.00'), subtotal_before_overall_discount - target_total_val)
+            sale.overall_discount_type = 'target_total'
+            sale.overall_discount_value = target_total_val # Store the target total itself
+        else:
+            return None, f"Invalid discount type: {discount_type}."
+        
+        sale.overall_discount_amount_applied = calculated_discount_amount
+
+        # Apply rounding if specified
+        if rounding_target:
+            current_net_subtotal_before_tax = subtotal_before_overall_discount - sale.overall_discount_amount_applied
+            gst_rate = SaleService._get_gst_rate()
+            current_gst = SaleService._calculate_tax_on_net(current_net_subtotal_before_tax, gst_rate)
+            current_grand_total = current_net_subtotal_before_tax + current_gst
+            
+            rounded_grand_total = current_grand_total # Default to current if no rounding applies
+
+            if rounding_target == 'round_down_dollar':
+                # Round down to the nearest whole dollar
+                rounded_grand_total = current_grand_total.quantize(Decimal('1.00'), rounding=ROUND_DOWN)
+            elif rounding_target == 'round_down_ten_dollar':
+                # Round down to the nearest $10
+                rounded_grand_total = (current_grand_total // Decimal('10')) * Decimal('10')
+            
+            if rounded_grand_total < current_grand_total : # Ensure we only apply discount, not increase price
+                # The difference is the additional discount needed to reach the rounded total
+                # We need to find what discount on the pre-tax amount results in this rounded grand total
+                # Let R = rounded_grand_total, G = gst_rate_decimal (e.g., 0.10 for 10%)
+                # R = NewNetSubtotal * (1 + G) => NewNetSubtotal = R / (1 + G)
+                # AdditionalDiscount = current_net_subtotal_before_tax - NewNetSubtotal
+                # TotalAppliedDiscount = sale.overall_discount_amount_applied + AdditionalDiscount
+                
+                # Simpler: The rounding effectively adjusts the grand total. The difference is an extra discount amount.
+                # This discount amount is applied to the pre-tax value.
+                # The difference (current_grand_total - rounded_grand_total) is the amount of total price reduction.
+                # This reduction comes from the pre-tax amount.
+                # If R = T_net * (1+g) where T_net is net subtotal
+                # if R_new = T_net_new * (1+g)
+                # current_grand_total - rounded_grand_total = (T_net - T_net_new) * (1+g)
+                # T_net - T_net_new = (current_grand_total - rounded_grand_total) / (1+g)
+                # This is the additional pre-tax discount.
+                additional_pre_tax_discount = (current_grand_total - rounded_grand_total) / (Decimal('1') + gst_rate / Decimal('100'))
+                additional_pre_tax_discount = additional_pre_tax_discount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+                sale.overall_discount_amount_applied += additional_pre_tax_discount
+                # After rounding, the discount is effectively a fixed amount
+                sale.overall_discount_type = 'fixed' 
+                sale.overall_discount_value = sale.overall_discount_amount_applied 
+        
+        # Ensure overall_discount_amount_applied doesn't exceed subtotal_before_overall_discount
+        sale.overall_discount_amount_applied = min(sale.overall_discount_amount_applied, subtotal_before_overall_discount)
+        sale.overall_discount_amount_applied = max(Decimal('0.00'), sale.overall_discount_amount_applied) # Ensure not negative
+
+        try:
+            db.session.add(sale) # Add sale to session before commit
+            db.session.commit()
+            # After discount application, update payment status as totals might have changed
+            SaleService.check_and_update_payment_status(sale_id)
+            return sale, None
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error applying overall discount for Sale ID {sale_id}: {e}")
+            return None, f"Error applying overall discount: {str(e)}"
+
+    @staticmethod
     def check_and_update_payment_status(sale_id):
         sale = Sale.query.get(sale_id)
         if not sale:
             current_app.logger.error(f"[check_and_update_payment_status] Sale ID {sale_id} not found.")
             return None, "Sale not found for payment status check."
 
-        current_sale_total = Decimal('0.00')
-        for si in sale.sale_items:
-            item_price = si.sale_price if si.sale_price is not None else Decimal('0.00')
-            item_quantity = si.quantity if si.quantity is not None else 0
-            current_sale_total += (item_price * item_quantity)
+        subtotal_items = sum(
+            (si.sale_price * si.quantity) for si in sale.sale_items if si.sale_price is not None and si.quantity is not None
+        )
+        subtotal_items = Decimal(subtotal_items).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        overall_discount_amount = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         
-        total_paid = Decimal('0.00')
-        for p in sale.payments:
-            total_paid += p.amount
+        net_subtotal_after_overall_discount = subtotal_items - overall_discount_amount
+        
+        gst_rate = SaleService._get_gst_rate()
+        gst_amount = SaleService._calculate_tax_on_net(net_subtotal_after_overall_discount, gst_rate)
+        
+        final_billable_total = net_subtotal_after_overall_discount + gst_amount
+        
+        total_paid = sum(p.amount for p in sale.payments if p.amount is not None)
+        total_paid = Decimal(total_paid).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         original_status = sale.status
         
+        # Determine new status based on final_billable_total and total_paid
         if sale.status not in ['Void', 'Quote']: 
-            if total_paid >= current_sale_total and current_sale_total > 0:
+            if final_billable_total <= Decimal('0.00') and total_paid == Decimal('0.00'):
+                 # If total is zero (or less, e.g. due to large discount) and nothing paid
+                if not sale.sale_items: # No items
+                    sale.status = 'Open' # Can be open if it's an empty sale
+                else: # Items exist, but total is zero (e.g. 100% discount)
+                    sale.status = 'Paid' # Effectively paid if total is zero
+            elif total_paid >= final_billable_total and final_billable_total > Decimal('0.00'):
                 sale.status = 'Paid'
-            elif total_paid > 0 and total_paid < current_sale_total:
+            elif total_paid > Decimal('0.00') and total_paid < final_billable_total:
                 sale.status = 'Invoice' 
-            elif total_paid == 0 and current_sale_total > 0 and sale.status == 'Invoice':
-                # If it was 'Invoice' and items are removed making total > 0 but paid is 0, revert to Open
-                # Or, more simply, if no payment, keep/revert to 'Open' unless it's already 'Paid' (which is covered above)
-                pass # Let it remain 'Invoice' if it was already that, or 'Open'
-            elif sale.status != 'Open' and total_paid == 0 and current_sale_total == 0:
-                 # If all items are removed from a non-Open sale, and no payment, make it Open again
-                 sale.status = 'Open'
-            # The key change: If total_paid is 0 and sale_total > 0, it should generally remain 'Open' 
-            # unless explicitly moved to another state like 'Quote'.
-            # The previous logic would set it to 'Invoice'. We want to avoid that for this workflow.
-            # If it was already 'Invoice' and items are added/removed but no payment, it can stay 'Invoice' or go to 'Open'.
-            # For simplicity: if no payment has been made, and it's not a quote/void, it should be 'Open' if it has items, 
-            # or if it was 'Invoice' and now has items and 0 payment.
-            # More direct: if total_paid == 0 and current_sale_total > 0 and sale.status not in ['Quote', 'Void']:
-            #    sale.status = 'Open' # This might be too aggressive if it was manually set to 'Invoice'
+            elif total_paid == Decimal('0.00') and final_billable_total > Decimal('0.00'):
+                if sale.status != 'Open': # If it was Invoice or Paid, and now has balance and no payment, set to Open
+                     sale.status = 'Open'
+                # else keep as Open
+            # If final_billable_total is 0 and total_paid is 0, and it's not Quote/Void,
+            # it's effectively Paid if items exist (e.g. 100% discount) or Open if no items.
+            # This is covered by the first condition in this block.
 
-            # Revised logic for status update based on payment:
-            if sale.status not in ['Void', 'Quote']:
-                if total_paid >= current_sale_total and current_sale_total > 0:
-                    sale.status = 'Paid'
-                elif total_paid > 0 and total_paid < current_sale_total:
-                    sale.status = 'Invoice' # Partial payment implies an invoice state
-                elif total_paid == 0 and current_sale_total > 0:
-                    if sale.status == 'Paid': # Should not happen if total_paid is 0
-                        pass # Error condition or needs refund logic
-                    elif sale.status == 'Invoice': 
-                        pass # If it was already an Invoice (e.g. set by quote, or partial payment then items removed), let it be
-                    else: # Otherwise, if no payment and items exist, it's 'Open'
-                        sale.status = 'Open' 
-                elif total_paid == 0 and current_sale_total == 0 and sale.status != 'Open':
-                    # If sale becomes empty and no payment, revert to Open if it wasn't already
-                    sale.status = 'Open'
 
         try:
             if sale.status != original_status:
-                current_app.logger.info(f"Sale {sale.id} status changing from {original_status} to {sale.status} based on payment. Total: {current_sale_total}, Paid: {total_paid}")
-            db.session.commit() # Commit status change if any
+                current_app.logger.info(f"Sale {sale.id} status changing from {original_status} to {sale.status}. Final Total: {final_billable_total}, Paid: {total_paid}")
+            db.session.commit() 
             return sale, None
         except Exception as e:
             db.session.rollback()

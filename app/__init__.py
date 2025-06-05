@@ -170,5 +170,9 @@ def create_app(config_class=Config):
             return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
         except FileNotFoundError:
             return "File not found", 404
+        
+    @app.route('/stock/')
+    def stock_management():
+        return send_from_directory(frontend_dir_path, 'stock_management.html')
 
     return app 

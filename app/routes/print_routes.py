@@ -66,8 +66,34 @@ def print_sale_document(sale_id):
     generation_date_time = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     quotation_valid_until_date = (datetime.now() + timedelta(days=14)).strftime('%d %B %Y')
 
-    # Get calculated financial details from SaleService
-    calculated_sale_total, calculated_amount_paid, calculated_amount_due, calculated_total_tax = SaleService._calculate_sale_details(sale.id)
+    # Calculate new detailed breakdown of totals for printing
+    subtotal_gross_original_calc = sum(
+        (si.price_at_sale * si.quantity) for si in sale.sale_items if si.price_at_sale is not None and si.quantity is not None
+    )
+    subtotal_gross_original_calc = Decimal(subtotal_gross_original_calc).quantize(Decimal('0.01'))
+
+    total_line_item_discounts_calc = sum(
+        ((si.price_at_sale - si.sale_price) * si.quantity) 
+        for si in sale.sale_items 
+        if si.price_at_sale is not None and si.sale_price is not None and si.quantity is not None
+    )
+    total_line_item_discounts_calc = Decimal(total_line_item_discounts_calc).quantize(Decimal('0.01'))
+
+    overall_discount_amount_applied_calc = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'))
+
+    net_subtotal_before_tax_calc = subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc
+    net_subtotal_before_tax_calc = net_subtotal_before_tax_calc.quantize(Decimal('0.01'))
+
+    gst_rate_percentage_config = Decimal(company_details.get('gst_rate_percentage', '10'))
+    gst_amount_calc = Decimal('0.00')
+    if net_subtotal_before_tax_calc > 0 and gst_rate_percentage_config > 0:
+        gst_amount_calc = (net_subtotal_before_tax_calc * (gst_rate_percentage_config / Decimal('100'))).quantize(Decimal('0.01'))
+
+    final_grand_total_calc = net_subtotal_before_tax_calc + gst_amount_calc
+    
+    amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
+    amount_paid_calc = Decimal(amount_paid_calc).quantize(Decimal('0.01'))
+    amount_due_calc = final_grand_total_calc - amount_paid_calc
 
     render_context = {
         "sale": sale, 
@@ -75,10 +101,17 @@ def print_sale_document(sale_id):
         "generation_date": generation_date,
         "generation_date_time": generation_date_time,
         "quotation_valid_until_date": quotation_valid_until_date,
-        "display_sale_total": calculated_sale_total if calculated_sale_total is not None else Decimal('0.00'),
-        "display_total_tax": calculated_total_tax if calculated_total_tax is not None else Decimal('0.00'),
-        "display_amount_paid": calculated_amount_paid if calculated_amount_paid is not None else Decimal('0.00'),
-        "display_amount_due": calculated_amount_due if calculated_amount_due is not None else Decimal('0.00'),
+        
+        # New financial breakdown for templates
+        "subtotal_gross_original": subtotal_gross_original_calc,
+        "total_line_item_discounts": total_line_item_discounts_calc,
+        "overall_discount_applied": overall_discount_amount_applied_calc, # sale.overall_discount_amount_applied is also available directly
+        "net_subtotal_final": net_subtotal_before_tax_calc,
+        "gst_total": gst_amount_calc,
+        "grand_total_final": final_grand_total_calc,
+        "total_paid": amount_paid_calc,
+        "amount_due_final": amount_due_calc,
+
         **company_details
     }
 

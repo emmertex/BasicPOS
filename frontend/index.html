@@ -90,12 +90,51 @@
                 <h2>Current Sale (Cart)</h2>
                 <div id="cart-items"></div>
                 <div id="cart-summary">
-                    <p>Total: <span id="cart-total">0.00</span></p>
-                    <div id="cart-payment-details">
+                    <div id="overall-discount-section" style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <label for="overall-discount-type" style="margin-right: 5px;">Overall Discount:</label>
+                        <select id="overall-discount-type" style="padding: 5px; flex-grow: 1;">
+                            <option value="none" selected>None</option>
+                            <option value="percentage">%</option>
+                            <option value="fixed">Fixed Amount ($)</option>
+                            <option value="target_total">Set Sale Total ($)</option>
+                        </select>
+                        <input type="number" id="overall-discount-value" placeholder="Value" step="0.01" style="padding: 5px; width: 70px; flex-grow: 1;">
+                        <button id="apply-overall-discount-btn" style="padding: 5px 10px; flex-grow: 0;">Apply</button>
+                    </div>
+
+                    <!-- New Totals Display Area -->
+                    <div id="cart-totals-detailed">
+                        <p id="cart-subtotal-gross-original-line" style="display: flex; justify-content: space-between;">
+                            <span style="text-align: left;">Subtotal:</span>
+                            <span id="cart-subtotal-gross-original-value" style="text-align: right;">0.00</span>
+                        </p>
+                        <p id="cart-total-line-item-discounts-line" style="display: flex; justify-content: space-between; color: #e74c3c;">
+                            <span style="text-align: left;">Discounts on Items:</span>
+                            <span style="text-align: right;">-<span id="cart-total-line-item-discounts-value">0.00</span></span>
+                        </p>
+                        <p id="cart-overall-cart-discount-line" style="display: flex; justify-content: space-between; color: #e74c3c;">
+                            <span style="text-align: left;">Overall Cart Discount:</span>
+                            <span style="text-align: right;">-<span id="cart-overall-cart-discount-value">0.00</span></span>
+                        </p>
+                        <p id="cart-net-subtotal-final-line" style="display: flex; justify-content: space-between;">
+                            <span style="text-align: left;">Net Subtotal:</span>
+                            <span id="cart-net-subtotal-final-value" style="text-align: right;">0.00</span>
+                        </p>
+                        <p id="cart-gst-final-line" style="display: flex; justify-content: space-between;">
+                            <span style="text-align: left;">GST:</span>
+                            <span id="cart-gst-final-value" style="text-align: right;">0.00</span>
+                        </p>
+                        <p id="cart-total-final-line" style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top:5px;">
+                            <span style="text-align: left;">TOTAL:</span>
+                            <span id="cart-total-final-value" style="text-align: right;">0.00</span>
+                        </p>
+                    </div>
+                    
+                    <div id="cart-payment-details" style="margin-top:10px;">
                         <!-- Payment lines will be injected here by JS -->
                     </div>
-                    <p>Remaining to be Paid: <span id="cart-amount-due">0.00</span></p>
-                    <p>Status: <span id="cart-sale-status">No Active Sale</span></p>
+                    <p id="cart-amount-due-line" style="display: flex; justify-content: space-between; font-weight: bold;"><span>Remaining to be Paid:</span> <span id="cart-amount-due">0.00</span></p>
+                    <p style="display: flex; justify-content: space-between;"><span>Status:</span> <span id="cart-sale-status">No Active Sale</span></p>
                     <div id="sale-notes-section" style="margin-top: 10px;">
                         <label for="sale-customer-notes">Sale Notes (e.g., pickup/delivery):</label>
                         <textarea id="sale-customer-notes" rows="3" style="width: 100%; box-sizing: border-box;"></textarea>
@@ -418,7 +457,7 @@
 
             <div class="form-group">
                 <label for="edit-sale-item-quantity">Quantity:</label>
-                <input type="number" id="edit-sale-item-quantity" min="1" value="1">
+                <input type="number" id="edit-sale-item-quantity" value="1">
             </div>
             
             <div class="form-group">

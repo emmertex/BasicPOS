@@ -60,7 +60,7 @@ export async function loadParkedSales() {
             sales.forEach(sale => {
                 const saleDiv = document.createElement('div');
                 saleDiv.className = 'parked-sale-entry';
-                const totalDisplay = sale.sale_total !== undefined && sale.sale_total !== null ? sale.sale_total.toFixed(2) : '0.00';
+                const totalDisplay = typeof sale.final_grand_total === 'number' ? sale.final_grand_total.toFixed(2) : '0.00';
                 saleDiv.innerHTML = 'Sale ID: ' + sale.id + ' - Customer: ' + (sale.customer ? sale.customer.name : 'N/A') + ' - Total: ' + totalDisplay;
                 saleDiv.style.cursor = 'pointer';
                 saleDiv.style.padding = '5px';
@@ -118,7 +118,9 @@ export async function searchAllSales() {
                     '<strong>Sale ID: ' + sale.id + '</strong> (Status: ' + sale.status + ')<br>' +
                     'Customer: ' + customerName + '<br>' +
                     'Date: ' + new Date(sale.created_at).toLocaleString() + '<br>' +
-                    'Total: $' + sale.sale_total.toFixed(2) + ' | Paid: $' + sale.amount_paid.toFixed(2) + ' | Due: $' + sale.amount_due.toFixed(2) +
+                    'Total: $' + (typeof sale.final_grand_total === 'number' ? sale.final_grand_total.toFixed(2) : '0.00') +
+                    ' | Paid: $' + (typeof sale.amount_paid === 'number' ? sale.amount_paid.toFixed(2) : '0.00') +
+                    ' | Due: $' + (typeof sale.amount_due === 'number' ? sale.amount_due.toFixed(2) : '0.00') +
                     '<br>' +
                     'Items: ' + sale.sale_items.length + ' ' +
                     '<button class="view-sale-details-btn btn btn-info" data-sale-id="' + sale.id + '">View/Load</button>' +

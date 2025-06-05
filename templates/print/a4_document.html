@@ -52,7 +52,7 @@
                 <img src="{{ company_logo_url }}" alt="{{ company_name }}">
                 {% endif %}
                 <p><strong>{{ company_name }}</strong></p>
-                <p>{{ company_abn | default('', true) }}</p>
+                <p>{{ company_abn | default('', true) }}</p>`
                 <p>{{ company_address_line1 }}</p>
                 {% if company_address_line2 %}<p>{{ company_address_line2 }}</p>{% endif %}
                 <p>{{ company_city_state_postcode }}</p>
@@ -134,17 +134,37 @@
 
         <section class="totals-section">
             <table>
+                {% if total_line_item_discounts > 0 or overall_discount_applied > 0 %}
                 <tr>
                     <td class="label">Subtotal:</td>
-                    <td>${{ "%.2f" | format(display_sale_total - display_total_tax) }}</td>
+                    <td>${{ "%.2f" | format(subtotal_gross_original) }}</td>
                 </tr>
+                {% endif %}
+                {% if total_line_item_discounts > 0 %}
                 <tr>
-                    <td class="label">GST ({{ gst_rate_percentage | default(10) }}%):</td>
-                    <td>${{ "%.2f" | format(display_total_tax) }}</td>
+                    <td class="label" style="padding-left: 15px; color: #e74c3c;">Discounts on Items:</td>
+                    <td style="color: #e74c3c;">-${{ "%.2f" | format(total_line_item_discounts) }}</td>
                 </tr>
+                {% endif %}
+                {% if overall_discount_applied > 0 %}
+                <tr>
+                    <td class="label" style="padding-left: 15px; color: #e74c3c;">Overall Sale Discount:</td>
+                    <td style="color: #e74c3c;">-${{ "%.2f" | format(overall_discount_applied) }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td class="label">Net Subtotal:</td>
+                    <td>${{ "%.2f" | format(net_subtotal_final) }}</td>
+                </tr>
+                {% if gst_total > 0 %}
+                <tr>
+                    <td class="label">GST ({{ gst_rate_percentage }}%):</td>
+                    <td>${{ "%.2f" | format(gst_total) }}</td>
+                </tr>
+                {% endif %}
                 <tr class="grand-total">
                     <td class="label">Total:</td>
-                    <td>${{ "%.2f" | format(display_sale_total) }}</td>
+                    <td>${{ "%.2f" | format(grand_total_final) }}</td>
                 </tr>
                 {% if sale.payments and sale.payments|length > 0 %}
                 <tr><td colspan="2">&nbsp;</td></tr> {# Spacer #}
@@ -159,7 +179,7 @@
                 {% endif %}
                  <tr class="grand-total" style="border-top: 2px solid #333; margin-top: 5px; padding-top: 5px;">
                     <td class="label">Amount Due:</td>
-                    <td>${{ "%.2f" | format(display_amount_due) }}</td>
+                    <td>${{ "%.2f" | format(amount_due_final) }}</td>
                 </tr>
             </table>
         </section>

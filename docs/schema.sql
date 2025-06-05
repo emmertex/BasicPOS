@@ -1,15 +1,3 @@
-    SET FOREIGN_KEY_CHECKS = 0;
-    DROP TABLE IF EXISTS items;
-    DROP TABLE IF EXISTS categories;
-    DROP TABLE IF EXISTS photos;
-    DROP TABLE IF EXISTS customers;
-    DROP TABLE IF EXISTS sales;
-    DROP TABLE IF EXISTS sale_items;
-    DROP TABLE IF EXISTS payments;
-    DROP TABLE IF EXISTS quick_add_items;
-    -- Potentially drop 'photos' and other related tables if they exist
-
-
 -- Main Items Table
 CREATE TABLE Items (
     id INTEGER NOT NULL AUTO_INCREMENT,
@@ -48,10 +36,6 @@ CREATE TABLE Photos (
     FOREIGN KEY(item_id) REFERENCES Items (id) ON DELETE CASCADE
 );
 
-    SET FOREIGN_KEY_CHECKS = 1;
-
-
-
 -- Customers Table
 CREATE TABLE Customers (
     id INTEGER NOT NULL AUTO_INCREMENT,
@@ -62,16 +46,14 @@ CREATE TABLE Customers (
     company_name VARCHAR(255),
     PRIMARY KEY (id)
 );
-SET FOREIGN_KEY_CHECKS = 0;
-    DROP TABLE IF EXISTS sales;
-    DROP TABLE IF EXISTS sale_items;
-    DROP TABLE IF EXISTS payments;
--- Sales Table
 
 CREATE TABLE Sales (
     id INTEGER NOT NULL AUTO_INCREMENT,
     customer_id INTEGER,
     status ENUM('Open', 'Quote', 'Invoice', 'Paid', 'Void') NOT NULL DEFAULT 'Open',
+    overall_discount_type ENUM('none', 'percentage', 'fixed', 'target_total') DEFAULT 'none',
+    overall_discount_value DECIMAL(10, 2) DEFAULT 0.00,
+    overall_discount_amount_applied DECIMAL(10, 2) DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     customer_notes TEXT,
@@ -105,7 +87,6 @@ CREATE TABLE Payments (
     PRIMARY KEY (id),
     FOREIGN KEY(sale_id) REFERENCES Sales (id) ON DELETE CASCADE
 );
-    SET FOREIGN_KEY_CHECKS = 1;
 -- Quick Add Items Table (as specified above)
 CREATE TABLE quick_add_items (
     id INTEGER NOT NULL AUTO_INCREMENT,

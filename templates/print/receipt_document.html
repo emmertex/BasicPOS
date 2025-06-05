@@ -113,17 +113,37 @@
 
         <section class="totals-section">
             <table>
+                {% if total_line_item_discounts > 0 or overall_discount_applied > 0 %}
                 <tr>
                     <td class="label">Subtotal:</td>
-                    <td class="value">${{ "%.2f" | format(display_sale_total - display_total_tax) }}</td>
+                    <td class="value">${{ "%.2f" | format(subtotal_gross_original) }}</td>
                 </tr>
+                {% endif %}
+                {% if total_line_item_discounts > 0 %}
                 <tr>
-                    <td class="label">GST:</td>
-                    <td class="value">${{ "%.2f" | format(display_total_tax) }}</td>
+                    <td class="label" style="padding-left: 10px; color: #e74c3c;">Discounts on Items:</td>
+                    <td class="value" style="color: #e74c3c;">-${{ "%.2f" | format(total_line_item_discounts) }}</td>
                 </tr>
+                {% endif %}
+                {% if overall_discount_applied > 0 %}
+                <tr>
+                    <td class="label" style="padding-left: 10px; color: #e74c3c;">Overall Discount:</td>
+                    <td class="value" style="color: #e74c3c;">-${{ "%.2f" | format(overall_discount_applied) }}</td>
+                </tr>
+                {% endif %}
+                <tr>
+                    <td class="label">Net Subtotal:</td>
+                    <td class="value">${{ "%.2f" | format(net_subtotal_final) }}</td>
+                </tr>
+                {% if gst_total > 0 %}
+                <tr>
+                    <td class="label">GST ({{ gst_rate_percentage }}%):</td>
+                    <td class="value">${{ "%.2f" | format(gst_total) }}</td>
+                </tr>
+                {% endif %}
                 <tr class="grand-total">
                     <td class="label">TOTAL:</td>
-                    <td class="value">${{ "%.2f" | format(display_sale_total) }}</td>
+                    <td class="value">${{ "%.2f" | format(grand_total_final) }}</td>
                 </tr>
                 <tr><td colspan="2">&nbsp;</td></tr>
                 {% for payment in sale.payments %}
@@ -136,7 +156,7 @@
                 {% endfor %}
                 <tr class="grand-total">
                     <td class="label">AMOUNT DUE:</td>
-                    <td class="value">${{ "%.2f" | format(display_amount_due) }}</td>
+                    <td class="value">${{ "%.2f" | format(amount_due_final) }}</td>
                 </tr>
             </table>
         </section>

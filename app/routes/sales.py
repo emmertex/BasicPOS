@@ -60,37 +60,64 @@ def sale_to_dict(sale):
         customer = Customer.query.get(sale.customer_id) # Fetch the customer object
         customer_details = customer_to_dict(customer) # Serialize it
 
-    # Calculate sale totals
-    # Use SaleService method to keep logic centralized if complex, or calculate directly
-    # For now, direct calculation for simpler _calculate_sale_details call
-    from app.services.sale_service import SaleService # Import here to use _calculate_sale_details
-    sale_total_calc = sum(si.line_total for si in sale.sale_items if hasattr(si, 'line_total'))
-    amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
-    amount_due_calc = sale_total_calc - amount_paid_calc
+    # Calculate new detailed breakdown of totals
+    subtotal_gross_original_calc = sum(
+        (si.price_at_sale * si.quantity) for si in sale.sale_items if si.price_at_sale is not None and si.quantity is not None
+    )
+    subtotal_gross_original_calc = Decimal(subtotal_gross_original_calc).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    total_line_item_discounts_calc = sum(
+        ((si.price_at_sale - si.sale_price) * si.quantity) 
+        for si in sale.sale_items 
+        if si.price_at_sale is not None and si.sale_price is not None and si.quantity is not None
+    )
+    total_line_item_discounts_calc = Decimal(total_line_item_discounts_calc).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    overall_discount_amount_applied_calc = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    net_subtotal_before_tax_calc = subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc
+    net_subtotal_before_tax_calc = net_subtotal_before_tax_calc.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    gst_rate_percentage = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10'))
+    gst_amount_calc = Decimal('0.00')
+    if net_subtotal_before_tax_calc > 0 and gst_rate_percentage > 0:
+        gst_amount_calc = (net_subtotal_before_tax_calc * (gst_rate_percentage / Decimal('100'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    final_grand_total_calc = net_subtotal_before_tax_calc + gst_amount_calc
     
-    # For total_tax, assuming it's part of SaleService logic and not directly on Sale model for now.
-    # If GST_RATE_PERCENTAGE is available, we can calculate it here as well.
-    gst_rate = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', 10))
-    total_tax_calc = Decimal('0.00')
-    if sale_total_calc > 0 and gst_rate > 0:
-        total_tax_calc = (sale_total_calc * (gst_rate / (Decimal('100') + gst_rate))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
+    amount_paid_calc = Decimal(amount_paid_calc).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    amount_due_calc = final_grand_total_calc - amount_paid_calc
 
     return {
         'id': sale.id,
         'customer_id': sale.customer_id,
-        'customer': customer_details, # Embed customer details
+        'customer': customer_details,
         'status': sale.status,
         'created_at': sale.created_at.isoformat() if sale.created_at else None,
         'updated_at': sale.updated_at.isoformat() if sale.updated_at else None,
         'customer_notes': sale.customer_notes,
         'internal_notes': sale.internal_notes,
         'purchase_order_number': sale.purchase_order_number,
+        
+        'overall_discount_type': sale.overall_discount_type,
+        'overall_discount_value': float(sale.overall_discount_value) if sale.overall_discount_value is not None else 0.0,
+        # 'overall_discount_amount_applied' is one of the main fields below
+
         'sale_items': [sale_item_to_dict(si) for si in sale.sale_items],
         'payments': [_simple_payment_to_dict_for_sale(p) for p in sale.payments], 
-        'sale_total': float(sale_total_calc),
+        
+        # New detailed financial breakdown
+        'subtotal_gross_original': float(subtotal_gross_original_calc),
+        'total_line_item_discounts': float(total_line_item_discounts_calc),
+        'overall_discount_amount_applied': float(overall_discount_amount_applied_calc), # Renamed from previous overall_discount_amount_applied
+        'net_subtotal_before_tax': float(net_subtotal_before_tax_calc),
+        'gst_amount': float(gst_amount_calc), # Renamed from total_tax
+        'final_grand_total': float(final_grand_total_calc), # Renamed from sale_total
+        
         'amount_paid': float(amount_paid_calc),
         'amount_due': float(amount_due_calc),
-        'total_tax': float(total_tax_calc),
+        'gst_rate_percentage': float(gst_rate_percentage)
     }
 
 @bp.route('/', methods=['POST'])
@@ -220,4 +247,43 @@ def update_sale_details_route(sale_id):
     if error:
         status_code = 404 if "not found" in error.lower() else 400
         return jsonify({"error": error}), status_code
+    return jsonify(sale_to_dict(sale)), 200
+
+@bp.route('/<int:sale_id>/overall_discount', methods=['PUT'])
+def apply_overall_discount_route(sale_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid input, no data provided."}), 400
+
+    discount_type = data.get('discount_type')
+    discount_value_str = data.get('discount_value') # Keep as string for service to parse
+    rounding_target = data.get('rounding_target') # Optional: e.g., 'round_down_dollar', 'round_down_ten_dollar'
+
+    if discount_type is None or discount_value_str is None:
+        # 'none' type might not require a value, but service handles 'none' type value if null.
+        # For other types, value is essential.
+        if discount_type != 'none':
+             return jsonify({"error": "Missing discount_type or discount_value."}), 400
+
+    sale, error = SaleService.apply_overall_sale_discount(
+        sale_id,
+        discount_type,
+        discount_value_str,
+        rounding_target
+    )
+
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        return jsonify({"error": error}), status_code
+    
+    return jsonify(sale_to_dict(sale)), 200
+
+# Payment related routes
+@bp.route('/<int:sale_id>/payments', methods=['POST'])
+def add_payment_to_sale_route(sale_id):
+    data = request.get_json()
+    if not data or 'amount' not in data or 'payment_type' not in data:
+        return jsonify({"error": "Invalid input, amount and payment_type are required"}), 400
+    
+    payment, error = SaleService.add_payment_to_sale(sale_id, data)
     return jsonify(sale_to_dict(sale)), 200 

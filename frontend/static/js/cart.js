@@ -23,6 +23,27 @@ const cartAmountDueSpan = document.getElementById('cart-amount-due');
 const saleCustomerNotesTextarea = document.getElementById('sale-customer-notes');
 const salePoNumberInput = document.getElementById('sale-po-number');
 
+// Overall Discount UI Elements
+const overallDiscountSectionDiv = document.getElementById('overall-discount-section');
+const overallDiscountTypeSelect = document.getElementById('overall-discount-type');
+const overallDiscountValueInput = document.getElementById('overall-discount-value');
+const applyOverallDiscountBtn = document.getElementById('apply-overall-discount-btn');
+
+// Cart Summary Detail Line Elements (for parent <p> tags)
+const cartSubtotalGrossOriginalLine = document.getElementById('cart-subtotal-gross-original-line');
+const cartTotalLineItemDiscountsLine = document.getElementById('cart-total-line-item-discounts-line');
+const cartOverallCartDiscountLine = document.getElementById('cart-overall-cart-discount-line');
+const cartNetSubtotalFinalLine = document.getElementById('cart-net-subtotal-final-line'); // This line is always visible by default styling
+const cartGstFinalLine = document.getElementById('cart-gst-final-line');
+
+// Cart Summary Value Span Elements
+const cartSubtotalGrossOriginalValueSpan = document.getElementById('cart-subtotal-gross-original-value');
+const cartTotalLineItemDiscountsValueSpan = document.getElementById('cart-total-line-item-discounts-value');
+const cartOverallCartDiscountValueSpan = document.getElementById('cart-overall-cart-discount-value');
+const cartNetSubtotalFinalValueSpan = document.getElementById('cart-net-subtotal-final-value');
+const cartGstFinalValueSpan = document.getElementById('cart-gst-final-value');
+const cartTotalFinalValueSpan = document.getElementById('cart-total-final-value'); // Replaces cartTotalSpan
+
 // --- Edit Sale Item Modal Elements ---
 let editSaleItemModal;
 let editSaleItemIdInput; // Hidden input for sale_item_id
@@ -80,6 +101,11 @@ export function initCartService() {
     }
     if (salePoNumberInput) {
         salePoNumberInput.addEventListener('input', debouncedSaveSalePoNumber);
+    }
+
+    // Add event listeners for overall discount controls
+    if (applyOverallDiscountBtn) {
+        applyOverallDiscountBtn.addEventListener('click', () => handleApplyOverallDiscount());
     }
 }
 
@@ -154,8 +180,8 @@ async function handleEditSaleItemSave() {
     }
     // If both are zero or empty, they remain null (no discount or discount removed)
 
-    if (isNaN(quantity) || quantity <= 0) {
-        showToast("Quantity must be a positive number.", "error");
+    if (isNaN(quantity) || quantity === 0) {
+        showToast("Quantity must be a non-zero integer.", "error");
         return;
     }
 
@@ -438,11 +464,26 @@ export function updateCartCustomerDisplay(customer) {
 }
 
 export function updateCartDisplay() {
-    if (!cartItemsDiv || !cartTotalSpan || !cartSaleStatusSpan || !cartActionButtonsDiv || !customerDetailsCartDiv || !cartPaymentDetailsDiv || !cartAmountDueSpan || !saleCustomerNotesTextarea || !salePoNumberInput) {
-        console.warn("updateCartDisplay: One or more cart UI elements not found. Cart display might be incomplete.");
-        // Do not return, try to update what we can
-    }
+    // Define elements that are crucial for the basic cart display.
+    // Specific total lines will be checked individually for their content update.
+    const coreElements = [
+        cartItemsDiv, cartSaleStatusSpan, cartActionButtonsDiv, 
+        customerDetailsCartDiv, cartPaymentDetailsDiv, cartAmountDueSpan, 
+        saleCustomerNotesTextarea, salePoNumberInput,
+        overallDiscountSectionDiv, overallDiscountTypeSelect, overallDiscountValueInput,
+        applyOverallDiscountBtn,
+        // New value spans
+        cartSubtotalGrossOriginalValueSpan, cartTotalLineItemDiscountsValueSpan, cartOverallCartDiscountValueSpan,
+        cartNetSubtotalFinalValueSpan, cartGstFinalValueSpan, cartTotalFinalValueSpan
+    ];
 
+    coreElements.forEach(el => {
+        if (!el) {
+            console.warn("updateCartDisplay: A core cart UI element is missing. Display might be incomplete or error-prone.");
+            // Consider if this should be a more critical error or if parts of the UI can degrade gracefully.
+        }
+    });
+    
     // Remove existing blur listener to prevent multiple listeners
     if (saleCustomerNotesTextarea && saleCustomerNotesTextarea._blurListener) {
         saleCustomerNotesTextarea.removeEventListener('blur', saleCustomerNotesTextarea._blurListener);
@@ -457,25 +498,72 @@ export function updateCartDisplay() {
         delete salePoNumberInput._inputListener;
     }
 
-    if (cartItemsDiv) cartItemsDiv.innerHTML = ''; // Clear previous items
-    if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = ''; // Clear previous payment details
+    if (cartItemsDiv) cartItemsDiv.innerHTML = ''; 
+    if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = ''; 
 
     if (state.currentSale && state.currentSale.id) {
-        if (cartTotalSpan) cartTotalSpan.textContent = state.currentSale.sale_total !== null && state.currentSale.sale_total !== undefined ? state.currentSale.sale_total.toFixed(2) : '0.00';
+        // Populate overall discount controls FIRST, as their state might depend on sale status
+        if (overallDiscountTypeSelect) overallDiscountTypeSelect.value = state.currentSale.overall_discount_type || 'none';
+        if (overallDiscountValueInput) overallDiscountValueInput.value = state.currentSale.overall_discount_value !== null ? parseFloat(state.currentSale.overall_discount_value).toFixed(2) : '0.00';
+        
+        const canEditDiscount = state.currentSale.status !== 'Paid' && state.currentSale.status !== 'Void';
+        if (overallDiscountSectionDiv) overallDiscountSectionDiv.style.display = 'block';
+        if (overallDiscountTypeSelect) overallDiscountTypeSelect.disabled = !canEditDiscount;
+        if (overallDiscountValueInput) overallDiscountValueInput.disabled = !canEditDiscount;
+        if (applyOverallDiscountBtn) applyOverallDiscountBtn.disabled = !canEditDiscount;
+
+        // Populate new total breakdown spans and manage visibility
+        const subtotalGross = state.currentSale.subtotal_gross_original || 0;
+        const itemDiscounts = state.currentSale.total_line_item_discounts || 0;
+        const overallDiscount = state.currentSale.overall_discount_amount_applied || 0;
+        const netSubtotal = state.currentSale.net_subtotal_before_tax || 0;
+        const gstAmount = state.currentSale.gst_amount || 0;
+        const finalTotal = state.currentSale.final_grand_total || 0;
+        const amountDue = state.currentSale.amount_due || 0;
+
+        if (cartSubtotalGrossOriginalValueSpan) cartSubtotalGrossOriginalValueSpan.textContent = subtotalGross.toFixed(2);
+        if (cartTotalLineItemDiscountsValueSpan) cartTotalLineItemDiscountsValueSpan.textContent = itemDiscounts.toFixed(2);
+        if (cartOverallCartDiscountValueSpan) cartOverallCartDiscountValueSpan.textContent = overallDiscount.toFixed(2);
+        if (cartNetSubtotalFinalValueSpan) cartNetSubtotalFinalValueSpan.textContent = netSubtotal.toFixed(2);
+        if (cartGstFinalValueSpan) cartGstFinalValueSpan.textContent = gstAmount.toFixed(2);
+        if (cartTotalFinalValueSpan) cartTotalFinalValueSpan.textContent = finalTotal.toFixed(2); // Updated from cartTotalSpan
+        if (cartAmountDueSpan) cartAmountDueSpan.textContent = amountDue.toFixed(2);
         if (cartSaleStatusSpan) cartSaleStatusSpan.textContent = `${state.currentSale.status} (ID: ${state.currentSale.id})`;
-        if (cartAmountDueSpan) cartAmountDueSpan.textContent = state.currentSale.amount_due !== null && state.currentSale.amount_due !== undefined ? state.currentSale.amount_due.toFixed(2) : '0.00';
+
+        // Conditional visibility for total lines
+        if (cartSubtotalGrossOriginalLine) {
+            cartSubtotalGrossOriginalLine.style.display = (itemDiscounts > 0 || overallDiscount > 0) ? 'flex' : 'none';
+        }
+        if (cartTotalLineItemDiscountsLine) {
+            cartTotalLineItemDiscountsLine.style.display = itemDiscounts > 0 ? 'flex' : 'none';
+        }
+        if (cartOverallCartDiscountLine) {
+            cartOverallCartDiscountLine.style.display = overallDiscount > 0 ? 'flex' : 'none';
+        }
+        // NetSubtotal and Total are always displayed via HTML structure (which should have display:flex).
+        // Their visibility is not toggled here, only their content.
+
+        // GST line visibility
+        if (cartGstFinalLine) {
+            cartGstFinalLine.style.display = gstAmount > 0 ? 'flex' : 'none';
+        }
+        
         if (saleCustomerNotesTextarea) {
             saleCustomerNotesTextarea.value = state.currentSale.customer_notes || '';
             saleCustomerNotesTextarea.disabled = false;
-            // Add new blur and input listeners
-            saleCustomerNotesTextarea._blurListener = saveSaleCustomerNotes; // Persist immediately on blur
-            saleCustomerNotesTextarea._inputListener = debouncedSaveSaleCustomerNotes; // Debounced save on input
+            // Add new blur and input listeners (ensure not duplicated)
+            if (saleCustomerNotesTextarea._blurListener) saleCustomerNotesTextarea.removeEventListener('blur', saleCustomerNotesTextarea._blurListener);
+            if (saleCustomerNotesTextarea._inputListener) saleCustomerNotesTextarea.removeEventListener('input', saleCustomerNotesTextarea._inputListener);
+            saleCustomerNotesTextarea._blurListener = saveSaleCustomerNotes;
+            saleCustomerNotesTextarea._inputListener = debouncedSaveSaleCustomerNotes;
             saleCustomerNotesTextarea.addEventListener('blur', saleCustomerNotesTextarea._blurListener);
             saleCustomerNotesTextarea.addEventListener('input', saleCustomerNotesTextarea._inputListener);
         }
         if (salePoNumberInput) {
             salePoNumberInput.value = state.currentSale.purchase_order_number || '';
             salePoNumberInput.disabled = false;
+            if (salePoNumberInput._blurListener) salePoNumberInput.removeEventListener('blur', salePoNumberInput._blurListener);
+            if (salePoNumberInput._inputListener) salePoNumberInput.removeEventListener('input', salePoNumberInput._inputListener);
             salePoNumberInput._blurListener = saveSalePoNumber;
             salePoNumberInput._inputListener = debouncedSaveSalePoNumber;
             salePoNumberInput.addEventListener('blur', salePoNumberInput._blurListener);
@@ -489,13 +577,13 @@ export function updateCartDisplay() {
                     const paymentDiv = document.createElement('p');
                     paymentDiv.className = 'cart-payment-line';
                     const paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : 'N/A';
-                    paymentDiv.innerHTML = `Paid by ${payment.payment_type} on ${paymentDate}: <span class="payment-amount">$${payment.amount.toFixed(2)}</span>`;
+                    paymentDiv.innerHTML = `Paid by ${payment.payment_type} on ${paymentDate}: <span class=\"payment-amount\">$${payment.amount.toFixed(2)}</span>`;
                     cartPaymentDetailsDiv.appendChild(paymentDiv);
                 }
             });
         }
 
-        if (state.currentSale.sale_items && state.currentSale.sale_items.length > 0) {
+        if (cartItemsDiv && state.currentSale.sale_items && state.currentSale.sale_items.length > 0) {
             state.currentSale.sale_items.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.classList.add('cart-item-entry-rich');
@@ -530,43 +618,40 @@ export function updateCartDisplay() {
                 const subtotalDisplay = (itemQuantity * salePriceForSubtotal).toFixed(2);
 
                 itemDiv.innerHTML = `
-                    <div class="cart-item-image-area">
-                        <img src="${imageUrl}" alt="${itemTitle}">
+                    <div class=\"cart-item-image-area\">
+                        <img src=\"${imageUrl}\" alt=\"${itemTitle}\">
                     </div>
-                    <div class="cart-item-details-area">
-                        <div class="cart-item-title-sku">
-                            <span class="cart-item-title">${itemTitle}</span>
-                            <span class="cart-item-sku">SKU: ${itemSku}</span>
+                    <div class=\"cart-item-details-area\">
+                        <div class=\"cart-item-title-sku\">
+                            <span class=\"cart-item-title\">${itemTitle}</span>
+                            <span class=\"cart-item-sku\">SKU: ${itemSku}</span>
                         </div>
-                        <div class="cart-item-description">${itemDescription.substring(0,100)}${itemDescription.length > 100 ? '...' : ''}</div>
-                        <div class="cart-item-notes-display">Notes: ${saleItemNotes || 'None'}</div>
+                        <div class=\"cart-item-description\">${itemDescription.substring(0,100)}${itemDescription.length > 100 ? '...' : ''}</div>
+                        <div class=\"cart-item-notes-display\">Notes: ${saleItemNotes || 'None'}</div>
                     </div>
-                    <div class="cart-item-pricing-area">
-                        <div class="cart-item-price">Price: \$${priceAtSaleString}</div>
-                        <div class="cart-item-quantity">
-                            Qty: <input type="number" class="cart-item-quantity-input" data-sale-item-id="${item.id}" value="${itemQuantity}" min="0">
+                    <div class=\"cart-item-pricing-area\">
+                        <div class=\"cart-item-price\">Price: $${priceAtSaleString}</div>
+                        <div class=\"cart-item-quantity\">
+                            Qty: <input type=\"number\" class=\"cart-item-quantity-input\" data-sale-item-id=\"${item.id}\" value=\"${itemQuantity}\">
                         </div>
-                        <div class="cart-item-discount">Discount: \$${lineItemDiscountDisplay}</div>
-                        <div class="cart-item-subtotal">Sub-Total: \$${subtotalDisplay}</div>
+                        <div class=\"cart-item-discount\">Discount: $${lineItemDiscountDisplay}</div>
+                        <div class=\"cart-item-subtotal\">Sub-Total: $${subtotalDisplay}</div>
                     </div>
-                    <div class="cart-item-actions-area">
-                        <button class="edit-cart-item-btn rich-btn" 
-                                data-sale-item-id="${item.id}" 
-                                data-item-name="${itemTitle}" 
-                                data-price-at-sale="${priceAtSaleString}"
-                                data-current-notes="${saleItemNotes}"
-                                title="Edit Item Details">
-                            <span class="icon-pencil">&#9998;</span>
+                    <div class=\"cart-item-actions-area\">
+                        <button class=\"edit-cart-item-btn rich-btn\" 
+                                data-sale-item-id=\"${item.id}\" 
+                                title=\"Edit Item Details\">
+                            <span class=\"icon-pencil\">&#9998;</span>
                         </button>
-                        <button class="remove-from-cart-btn rich-btn" data-sale-item-id="${item.id}" title="Remove Item">
-                            <span class="icon-bin">&#128465;</span>
+                        <button class=\"remove-from-cart-btn rich-btn\" data-sale-item-id=\"${item.id}\" title=\"Remove Item\">
+                            <span class=\"icon-bin\">&#128465;</span>
                         </button>
                     </div>
                 `;
                 cartItemsDiv.appendChild(itemDiv);
             });
         } else {
-            cartItemsDiv.innerHTML = '<p>Cart is empty.</p>';
+            if (cartItemsDiv) cartItemsDiv.innerHTML = '<p>Cart is empty.</p>';
         }
 
         if (state.currentSale.customer) {
@@ -576,38 +661,56 @@ export function updateCartDisplay() {
         }
 
         if (state.currentSale.sale_items.length > 0 || state.currentSale.customer_id) {
-            collapseParkedSales();
+            if (typeof collapseParkedSales === 'function') collapseParkedSales();
         } else {
-            expandParkedSales();
+            if (typeof expandParkedSales === 'function') expandParkedSales();
         }
         if (state.currentSale.customer_id) {
-            shrinkLeftPanel();
+            if (typeof shrinkLeftPanel === 'function') shrinkLeftPanel();
         } else {
-            expandLeftPanel();
+            if (typeof expandLeftPanel === 'function') expandLeftPanel();
         }
 
-        // Show action buttons if there is an active sale
         if (cartActionButtonsDiv) {
             cartActionButtonsDiv.style.display = 'flex'; 
         }
 
-    } else {
-        if (cartTotalSpan) cartTotalSpan.textContent = '0.00';
+    } else { // No current sale
+        // Clear all total values and hide conditional lines
+        if (cartSubtotalGrossOriginalValueSpan) cartSubtotalGrossOriginalValueSpan.textContent = '0.00';
+        if (cartTotalLineItemDiscountsValueSpan) cartTotalLineItemDiscountsValueSpan.textContent = '0.00';
+        if (cartOverallCartDiscountValueSpan) cartOverallCartDiscountValueSpan.textContent = '0.00';
+        if (cartNetSubtotalFinalValueSpan) cartNetSubtotalFinalValueSpan.textContent = '0.00';
+        if (cartGstFinalValueSpan) cartGstFinalValueSpan.textContent = '0.00';
+        if (cartTotalFinalValueSpan) cartTotalFinalValueSpan.textContent = '0.00';
+        if (cartAmountDueSpan) cartAmountDueSpan.textContent = '0.00';
         if (cartSaleStatusSpan) cartSaleStatusSpan.textContent = 'No Active Sale';
-        if (cartAmountDueSpan) cartAmountDueSpan.textContent = '0.00'; // Reset amount due
-        if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = ''; // Clear payment details
+        
+        // Ensure these lines are hidden by default if their conditions aren't met
+        if (cartSubtotalGrossOriginalLine) cartSubtotalGrossOriginalLine.style.display = 'none';
+        if (cartTotalLineItemDiscountsLine) cartTotalLineItemDiscountsLine.style.display = 'none';
+        if (cartOverallCartDiscountLine) cartOverallCartDiscountLine.style.display = 'none';
+        if (cartGstFinalLine) cartGstFinalLine.style.display = 'none';
+
+        if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = '';
         if (cartActionButtonsDiv) cartActionButtonsDiv.style.display = 'none';
+        
+        if (overallDiscountSectionDiv) overallDiscountSectionDiv.style.display = 'none';
+        if (overallDiscountTypeSelect) { overallDiscountTypeSelect.value = 'none'; overallDiscountTypeSelect.disabled = true; }
+        if (overallDiscountValueInput) { overallDiscountValueInput.value = '0.00'; overallDiscountValueInput.disabled = true; }
+        if (applyOverallDiscountBtn) applyOverallDiscountBtn.disabled = true;
+        
         if (saleCustomerNotesTextarea) {
-            saleCustomerNotesTextarea.value = ''; // Clear notes
-            saleCustomerNotesTextarea.disabled = true; // Disable if no active sale
+            saleCustomerNotesTextarea.value = ''; 
+            saleCustomerNotesTextarea.disabled = true; 
         }
         if (salePoNumberInput) {
             salePoNumberInput.value = '';
             salePoNumberInput.disabled = true;
         }
-        cartItemsDiv.innerHTML = '<p>No active sale. Add an item or load a parked sale.</p>';
-        expandParkedSales(); 
-        expandLeftPanel(); 
+        if (cartItemsDiv) cartItemsDiv.innerHTML = '<p>No active sale. Add an item or load a parked sale.</p>';
+        if (typeof expandParkedSales === 'function') expandParkedSales(); 
+        if (typeof expandLeftPanel === 'function') expandLeftPanel(); 
     }
 }
 
@@ -616,8 +719,8 @@ export async function handleUpdateCartItemQuantity(saleItemId, newQuantity) {
         showToast('No active sale to update quantity.', 'error');
         return;
     }
-    if (isNaN(newQuantity) || newQuantity < 1) {
-        showToast('Invalid quantity. Please enter a number greater than 0.', 'error');
+    if (isNaN(newQuantity) || newQuantity === 0) {
+        showToast('Quantity must be a non-zero integer.', 'error');
         const itemInCart = state.currentSale.sale_items.find(si => si.id == saleItemId);
         if (itemInCart) {
             const inputField = cartItemsDiv.querySelector(`.cart-item-quantity-input[data-sale-item-id="${saleItemId}"]`);
@@ -681,5 +784,39 @@ export async function handleRemoveItemFromCart(saleItemId) {
         if (state.currentSale && state.currentSale.id) {
             await loadSaleIntoCart(state.currentSale.id);
         }
+    }
+}
+
+async function handleApplyOverallDiscount() { 
+    if (!state.currentSale || !state.currentSale.id) {
+        showToast("No active sale to apply discount to.", "error");
+        return;
+    }
+
+    const discountType = overallDiscountTypeSelect.value;
+    const discountValue = overallDiscountValueInput.value;
+
+    if (discountType !== 'none' && (discountValue === null || discountValue.trim() === '')) {
+        showToast("Please enter a discount value.", "warning");
+        return;
+    }
+
+    const payload = {
+        discount_type: discountType,
+        discount_value: discountValue
+    };
+
+    try {
+        const updatedSale = await apiCall(`/sales/${state.currentSale.id}/overall_discount`, 'PUT', payload);
+        if (updatedSale && updatedSale.id) {
+            state.currentSale = updatedSale;
+            updateCartDisplay();
+            showToast("Overall sale discount applied successfully.", "success");
+        } else {
+            showToast(updatedSale.error || "Failed to apply overall discount.", "error");
+        }
+    } catch (error) {
+        console.error("Error applying overall discount:", error);
+        showToast("Error applying overall discount: " + (error.message || "Unknown error"), "error");
     }
 }
