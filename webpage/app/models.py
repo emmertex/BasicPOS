@@ -2,10 +2,10 @@ from . import db
 from sqlalchemy.orm import relationship
 
 class Category(db.Model):
-    __tablename__ = 'Categories'
+    __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False, unique=True)
-    parent_id = db.Column(db.Integer, db.ForeignKey('Categories.id'), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     
     items = relationship("Item", back_populates="category")
     parent = relationship("Category", remote_side=[id], back_populates="children")
@@ -15,7 +15,7 @@ class Category(db.Model):
         return f'<Category {self.name}>'
 
 class Item(db.Model):
-    __tablename__ = 'Items'
+    __tablename__ = 'items'
     id = db.Column(db.Integer, primary_key=True)
     parent_id = db.Column(db.Integer) # For versioning, might not be directly used in frontend
     is_current_version = db.Column(db.Boolean, nullable=False, default=True)
@@ -27,7 +27,7 @@ class Item(db.Model):
     price = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     show_on_website = db.Column(db.Boolean, nullable=False, default=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
-    category_id = db.Column(db.Integer, db.ForeignKey('Categories.id'), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
 
     category = relationship("Category", back_populates="items")
     photos = relationship("Photo", back_populates="item", lazy='dynamic') # Use lazy='dynamic' for photos
@@ -36,9 +36,9 @@ class Item(db.Model):
         return f'<Item {self.title}>'
 
 class Photo(db.Model):
-    __tablename__ = 'Photos'
+    __tablename__ = 'photos'
     id = db.Column(db.Integer, primary_key=True)
-    item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
     image_url = db.Column(db.String(255), nullable=False)
     is_primary = db.Column(db.Boolean, nullable=False, default=False)
 

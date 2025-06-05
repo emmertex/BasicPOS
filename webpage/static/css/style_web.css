@@ -153,7 +153,7 @@ footer.site-footer-bar { /* More specific selector for footer */
 
 /* Homepage Hero Section */
 .hero-section {
-    background-image: url('../images/hero_image.jpg');
+    background-image: url('../images/TB_Hero.jpg');
     background-size: cover;
     background-position: center center;
     color: white;

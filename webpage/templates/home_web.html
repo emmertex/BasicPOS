@@ -12,6 +12,27 @@
         </div>
     </div>
 
+
+    {% if some_of_our_items %}
+        <h2 style="text-align: center; margin-top: 2em; margin-bottom: 1em;">Some of our products</h2>
+        <div class="product-grid">
+            {% for item in some_of_our_items %}
+                <div class="product-item">
+                    <a href="{{ url_for('web_bp.product_page', item_id=item.id) }}">
+                        {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
+                        {% if primary_photo and primary_photo.image_url and primary_photo.image_url != '' %}
+                            <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_small') }}" alt="{{ item.title }}">
+                        {% else %}
+                            <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="{{ item.title }}" style="background-color:#ddd;">
+                        {% endif %}
+                        <h3>{{ item.title }}</h3>
+                        <p class="price">${{ "%.2f"|format(item.price) }}</p>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
     <h2 id="product-ranges" style="text-align: center; margin-top: 2em;">Product Ranges</h2>
     <div class="category-list">
         {% for category in categories %}
@@ -27,23 +48,4 @@
         {% endfor %}
     </div>
 
-    {% if featured_items %}
-        <h2 style="text-align: center; margin-top: 2em; margin-bottom: 1em;">Featured Products</h2>
-        <div class="product-grid">
-            {% for item in featured_items %}
-                <div class="product-item">
-                    <a href="{{ url_for('web_bp.product_page', item_id=item.id) }}">
-                        {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
-                        {% if primary_photo and primary_photo.image_url %}
-                            <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_small') }}" alt="{{ item.title }}">
-                        {% else %}
-                            <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="{{ item.title }}" style="background-color:#ddd;">
-                        {% endif %}
-                        <h3>{{ item.title }}</h3>
-                        <p class="price">${{ "%.2f"|format(item.price) }}</p>
-                    </a>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
 {% endblock %} 

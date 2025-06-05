@@ -6,30 +6,72 @@
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="{{ url_for('web_bp.home') }}">Home</a></li>
-            <!-- Add parent categories if you have a hierarchy -->
+            {# Logic to display parent categories in breadcrumb if they exist #}
+            {% if category.parent %}
+                {# This assumes a simple parent. If you have multiple levels, a recursive macro might be needed #}
+                <li class="breadcrumb-item"><a href="{{ url_for('web_bp.category_page', category_id=category.parent.id) }}">{{ category.parent.name }}</a></li>
+            {% endif %}
             <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
         </ol>
     </nav>
 
     <h1>{{ category.name }}</h1>
-    
-    <div class="product-grid">
-        {% for item in items %}
-            <div class="product-item">
-                <a href="{{ url_for('web_bp.product_page', item_id=item.id) }}">
-                    {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
-                    {% if primary_photo and primary_photo.image_url %}
-                        <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_small') }}" alt="{{ item.title }}" style="width:100%; height:180px; object-fit: cover;">
-                    {% else %}
-                        <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="{{ item.title }}" style="width:100%; height:180px; background-color:#eee; object-fit:cover;">
-                    {% endif %}
-                    <h3>{{ item.title }}</h3>
-                    <p>${{ "%.2f"|format(item.price) }}</p>
-                    <!-- Short description or SKU could go here -->
-                </a>
+
+    {# Display Subcategories with their items #}
+    {% if sub_categories_with_items %}
+        {% for sub_cat_data in sub_categories_with_items %}
+            <div class="subcategory-section" style="margin-bottom: 2em; padding-bottom: 1em; border-bottom: 1px solid #eee;">
+                {# Subcategory name as a link #}
+                <h2><a href="{{ url_for('web_bp.category_page', category_id=sub_cat_data.sub_category.id) }}">{{ sub_cat_data.sub_category.name }}</a></h2>
+                
+                {% if sub_cat_data['items'] %}
+                    <div class="product-grid">
+                        {% for item in sub_cat_data['items'] %}
+                            <div class="product-item">
+                                <a href="{{ url_for('web_bp.product_page', item_id=item.id) }}">
+                                    {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
+                                    {% if primary_photo and primary_photo.image_url and primary_photo.image_url != '' %}
+                                        <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_small') }}" alt="{{ item.title }}" style="width:100%; height:180px; object-fit: cover;">
+                                    {% else %}
+                                        <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="{{ item.title }}" style="width:100%; height:180px; background-color:#eee; object-fit:cover;">
+                                    {% endif %}
+                                    <h3>{{ item.title }}</h3>
+                                    <p class="price">${{ "%.2f"|format(item.price) }}</p>
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No items to display for {{ sub_cat_data.sub_category.name }} in this view.</p>
+                {% endif %}
             </div>
-        {% else %}
-            <p>No products in this category currently shown on the website.</p>
         {% endfor %}
-    </div>
+    {% endif %}
+
+    {# Display Direct Items for the current category if no subcategories were displayed OR if explicitly chosen to display them #}
+    {# The route logic currently populates direct_items if sub_categories_with_items is empty. #}
+    {% if direct_items %}
+        {% if sub_categories_with_items %}
+            {# Optionally, add a header if both subcategories and direct items might be shown #}
+            <h2 style="margin-top: 2em;">Other Products in {{ category.name }}</h2>
+        {% endif %}
+        <div class="product-grid">
+            {% for item in direct_items %}
+                <div class="product-item">
+                    <a href="{{ url_for('web_bp.product_page', item_id=item.id) }}">
+                        {% set primary_photo = item.photos.filter_by(is_primary=True).first() or item.photos.first() %}
+                        {% if primary_photo and primary_photo.image_url and primary_photo.image_url != '' %}
+                            <img src="{{ get_product_image_url(primary_photo.image_url, size_suffix='_small') }}" alt="{{ item.title }}" style="width:100%; height:180px; object-fit: cover;">
+                        {% else %}
+                            <img src="{{ url_for('web_bp.static', filename=config.PLACEHOLDER_IMAGE_FILENAME) }}" alt="{{ item.title }}" style="width:100%; height:180px; background-color:#eee; object-fit:cover;">
+                        {% endif %}
+                        <h3>{{ item.title }}</h3>
+                        <p class="price">${{ "%.2f"|format(item.price) }}</p>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% elif not sub_categories_with_items and not direct_items %}
+        <p>No products in this category currently shown on the website.</p>
+    {% endif %}
 {% endblock %} 
