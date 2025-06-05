@@ -1,7 +1,6 @@
 __pycache__/
 __pycache__
 migrations/
-importers/
 venv/
 .env
 *.png
@@ -21,4 +20,5 @@ config.py
 *.bmp
 *.tiff
 *.tif
-config.py
+config_web.py
+setup_database.py

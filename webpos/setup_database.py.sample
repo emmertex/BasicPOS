@@ -8,10 +8,10 @@ import pymysql
 import os
 
 # Database connection settings
-DB_HOST = '10.2.100.35'
-DB_USER = 'root'
-DB_PASSWORD = 'password'
-DB_NAME = 'retail_pos_system'
+DB_HOST = ''
+DB_USER = ''
+DB_PASSWORD = ''
+DB_NAME = ''
 SCHEMA_FILE = 'docs/schema.sql'
 
 def create_database():
