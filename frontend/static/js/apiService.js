@@ -1,12 +1,13 @@
 import { showToast } from './toastService.js';
 
 // --- API Base URL ---
-// Use the current host instead of hardcoding localhost
-export const API_BASE_URL = `${window.location.protocol}//${window.location.host}/api`;
+const API_PREFIX_URL = `${window.location.protocol}//${window.location.host}/api`;
+const ROOT_URL = `${window.location.protocol}//${window.location.host}`;
 
 // --- Helper Functions ---
-export async function apiCall(endpoint, method = 'GET', body = null, queryParams = null) {
-    let url = `${API_BASE_URL}${endpoint}`;
+export async function apiCall(endpoint, method = 'GET', body = null, queryParams = null, useApiPrefix = true) {
+    const baseUrl = useApiPrefix ? API_PREFIX_URL : ROOT_URL;
+    let url = `${baseUrl}${endpoint}`;
     if (queryParams && Object.keys(queryParams).length > 0) {
         const params = new URLSearchParams();
         for (const key in queryParams) {

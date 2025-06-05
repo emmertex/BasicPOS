@@ -135,8 +135,9 @@ export async function searchAllSales() {
                 }
                 const printEmailButton = saleDiv.querySelector('.print-email-sale-btn');
                 if (printEmailButton) {
+                    const customerEmail = sale.customer && sale.customer.email ? sale.customer.email : null;
                     printEmailButton.addEventListener('click', () => {
-                        openPrintOptionsModal(sale.id, sale.status); 
+                        openPrintOptionsModal(sale.id, sale.status, customerEmail); 
                     });
                 }
                 allSalesSearchResultsDiv.appendChild(saleDiv);
