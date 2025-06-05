@@ -1,5 +1,6 @@
 from app import db
 from sqlalchemy.dialects.mysql import INTEGER
+import os # Import os for path manipulation
 
 class QuickAddItem(db.Model):
     __tablename__ = 'quick_add_items'
@@ -25,36 +26,27 @@ class QuickAddItem(db.Model):
 
     def to_dict(self):
         primary_photo_small_url = None
-        if self.type == 'item' and self.item and self.item.photos:
-            primary_photo = next((p for p in self.item.photos if p.is_primary), None)
-            if primary_photo:
-                # Assuming Photo model has a to_dict or direct access to URL components
-                # and that image URLs are correctly constructed (e.g., /uploads/...)
-                # Let's assume photo objects have small_url like in ItemService item_to_dict
-                base_url = "/uploads/" # This should ideally come from config or be more robust
-                
-                # Attempt to get small_url if Photo model has it directly or via a method
-                # This part is speculative based on previous item_to_dict structure
-                if hasattr(primary_photo, 'image_url'): # image_url might be the base filename
-                     # Construct a plausible small_url, this needs to match ImageService logic
-                     # For simplicity, if image_url is base, small is base + _small.ext
-                     # This is a common pattern but might need adjustment to your actual Photo model / ImageService
-                    parts = primary_photo.image_url.rsplit('.', 1)
-                    if len(parts) == 2:
-                        small_filename = f"{parts[0]}_small.{parts[1]}"
-                        primary_photo_small_url = f"{base_url}{small_filename}"
-                    else: # Fallback if no extension, less likely
-                        primary_photo_small_url = f"{base_url}{primary_photo.image_url}" # Or just the raw if it's full path
-            elif self.item.photos: # No primary, take first one if any for display
-                first_photo = self.item.photos[0]
-                if hasattr(first_photo, 'image_url'):
-                    parts = first_photo.image_url.rsplit('.', 1)
-                    if len(parts) == 2:
-                        small_filename = f"{parts[0]}_small.{parts[1]}"
-                        primary_photo_small_url = f"{base_url}{small_filename}"
-                    else:
-                        primary_photo_small_url = f"{base_url}{first_photo.image_url}"
+        item_instance = getattr(self, 'item', None) # Safely get item
 
+        if self.type == 'item' and item_instance and item_instance.photos:
+            photo_to_process = None
+            # Find primary photo
+            for p in item_instance.photos:
+                if p.is_primary:
+                    photo_to_process = p
+                    break
+            # If no primary, take the first photo
+            if not photo_to_process and item_instance.photos:
+                photo_to_process = item_instance.photos[0]
+
+            if photo_to_process and hasattr(photo_to_process, 'image_url') and photo_to_process.image_url:
+                base_filename = photo_to_process.image_url
+                name, ext = os.path.splitext(base_filename)
+                if ext: # Ensure there is an extension
+                    primary_photo_small_url = f"/uploads/{name}_small{ext}"
+                else: # Fallback if no extension, though unlikely for images
+                    primary_photo_small_url = f"/uploads/{base_filename}" # Or handle as an error/placeholder
+            
         return {
             'id': self.id,
             'page_number': self.page_number,
@@ -65,8 +57,8 @@ class QuickAddItem(db.Model):
             'item_parent_id': self.item_parent_id,
             'target_page_number': self.target_page_number,
             'color': self.color,
-            'item_sku': self.item.sku if self.item else None, 
-            'item_price': self.item.price if self.item else None,
+            'item_sku': item_instance.sku if item_instance else None, 
+            'item_price': float(item_instance.price) if item_instance and item_instance.price is not None else None,
             'primary_photo_small_url': primary_photo_small_url
         }
 

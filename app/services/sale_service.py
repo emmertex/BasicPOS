@@ -4,7 +4,7 @@ from app.models.sale_item import SaleItem
 from app.models.item import Item
 from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP # Import ROUND_HALF_UP for consistent rounding
 from flask import current_app # Added for config access
 
 class SaleService:
@@ -117,52 +117,36 @@ class SaleService:
         if not item:
             return None, "Item not found or not active."
 
-        # Determine the sale_price: use override if provided, else item's master price.
-        # This is the price the item will actually be sold for in this line item.
-        sale_price_override = item_data.get('sale_price') # For future use if we allow overriding sale_price directly on add
-        effective_sale_price = Decimal(sale_price_override) if sale_price_override is not None else item.price
-
-        # Determine price_at_sale: This should be the item's master price at the time of adding to cart.
-        # The frontend sends this as 'price_at_sale' in item_data, originally sourced from item.price when first added from search/quickadd.
-        price_for_price_at_sale_field = item_data.get('price_at_sale') 
-        if price_for_price_at_sale_field is None:
-            # Fallback if frontend didn't send it (should not happen with current frontend)
-            price_for_price_at_sale_field = item.price 
+        # price_at_sale is the item's master price at the time of adding to cart.
+        # Frontend sends this as 'price_at_sale' or just 'price' from itemService.js -> cart.js
+        # It should be item.price.
+        price_at_sale_value = item_data.get('price_at_sale', item.price) 
+        if price_at_sale_value is None: # Should not happen if item.price is mandatory
+            price_at_sale_value = item.price 
 
         try:
-            # Check if item already exists in sale, if so, update quantity (optional behavior)
-            existing_sale_item = SaleItem.query.filter_by(sale_id=sale_id, item_id=item_id).first()
-            if existing_sale_item:
-                # Option 1: Update quantity of existing item
-                # existing_sale_item.quantity += int(quantity)
-                # existing_sale_item.sale_price = sale_price # Update price if it changed
-                # db.session.commit()
-                # return existing_sale_item, None
-                # Option 2: Return error or handle as new line (current: create new line)
-                # For now, we'll allow adding the same item multiple times as distinct SaleItems
-                # if you want to merge, the logic above can be uncommented & adjusted.
-                pass # Proceed to create a new SaleItem entry
-
             new_sale_item = SaleItem(
                 sale_id=sale_id,
                 item_id=item_id,
                 quantity=int(quantity),
-                sale_price=effective_sale_price, # The price it's actually sold at for this line
-                price_at_sale=Decimal(price_for_price_at_sale_field), # The item's price when added
-                notes=item_data.get('notes')
+                price_at_sale=Decimal(price_at_sale_value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                # Initially, sale_price is the same as price_at_sale (no discount on add)
+                sale_price=Decimal(price_at_sale_value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                notes=item_data.get('notes'),
+                discount_type=None, # No discount on initial add
+                discount_value=None
             )
             db.session.add(new_sale_item)
-            
-            # Optionally, update sale's updated_at timestamp explicitly if not handled by DB trigger for relations
-            # sale.updated_at = db.func.now() # Already handled by onupdate=func.now() in Sale model
             db.session.commit()
-            SaleService.check_and_update_payment_status(sale_id)
+            SaleService.check_and_update_payment_status(sale_id) # This should recalculate sale totals
             return new_sale_item, None
-        except ValueError:
+        except ValueError as ve:
             db.session.rollback()
-            return None, "Invalid quantity or price."
+            current_app.logger.error(f"ValueError adding item to sale: {ve} Data: {item_data}")
+            return None, "Invalid quantity or price format provided."
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f"Exception adding item to sale: {e}")
             return None, str(e)
     
     @staticmethod
@@ -182,32 +166,60 @@ class SaleService:
             if 'quantity' in data:
                 new_quantity = int(data['quantity'])
                 if new_quantity <= 0:
-                    # If quantity is zero or less, consider it a removal or handle as error
-                    # For now, let's treat 0 as remove, anything less as error.
-                    # Or simply update and let POS decide if 0 means remove later.
-                    # Current: allow update to 0. Frontend can interpret 0 as to-be-deleted.
-                     return None, "Quantity must be positive. To remove, use the remove item endpoint."
+                     return None, "Quantity must be positive. To remove, use the remove item function."
                 sale_item.quantity = new_quantity
             
-            if 'sale_price' in data:
-                # Ensure item exists to validate against, or just trust input price
-                item = Item.query.get(sale_item.item_id)
-                if not item:
-                     return None, "Original item not found, cannot update price without context."
-                sale_item.sale_price = Decimal(data['sale_price'])
+            # Discount handling
+            # price_at_sale is the original unit price and should not change during this update.
+            original_unit_price = Decimal(sale_item.price_at_sale)
+            new_effective_unit_price = original_unit_price # Start with original price
+
+            if 'discount_type' in data and 'discount_value' in data:
+                discount_type = data['discount_type']
+                raw_discount_value = data['discount_value']
+
+                if discount_type and raw_discount_value is not None:
+                    discount_value = Decimal(raw_discount_value)
+                    if discount_value < 0:
+                        return None, "Discount value cannot be negative."
+
+                    sale_item.discount_type = discount_type
+                    sale_item.discount_value = discount_value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+                    if discount_type == 'Percentage':
+                        if not (0 <= discount_value <= 100):
+                            return None, "Percentage discount must be between 0 and 100."
+                        discount_amount = (original_unit_price * discount_value / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                        new_effective_unit_price = original_unit_price - discount_amount
+                    elif discount_type == 'Absolute':
+                        new_effective_unit_price = original_unit_price - discount_value
+                    else:
+                        # Invalid discount type, revert to no discount for this update
+                        sale_item.discount_type = None
+                        sale_item.discount_value = None
+                        # new_effective_unit_price remains original_unit_price
+                        current_app.logger.warning(f"Invalid discount type '{discount_type}' provided for sale_item {sale_item.id}. Discount not applied.")
+                else: # Discount explicitly removed or not provided correctly
+                    sale_item.discount_type = None
+                    sale_item.discount_value = None
+                    # new_effective_unit_price remains original_unit_price
+            
+            # Ensure sale_price doesn't go below zero
+            sale_item.sale_price = max(Decimal('0.00'), new_effective_unit_price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
 
             if 'notes' in data:
                 sale_item.notes = data['notes']
             
-            # sale.updated_at will be handled by the model's onupdate setting
             db.session.commit()
-            SaleService.check_and_update_payment_status(sale_id)
+            SaleService.check_and_update_payment_status(sale_id) # This should recalculate sale totals
             return sale_item, None
-        except ValueError:
+        except ValueError as ve:
             db.session.rollback()
-            return None, "Invalid quantity or price format."
+            current_app.logger.error(f"ValueError updating sale item: {ve} Data: {data}")
+            return None, "Invalid data format for quantity or discount."
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f"Exception updating sale item {sale_item_id}: {e}")
             return None, str(e)
 
     @staticmethod
@@ -284,49 +296,70 @@ class SaleService:
 
     @staticmethod
     def check_and_update_payment_status(sale_id):
-        """Checks if a sale is fully paid and updates its status to 'Paid' if so.
-           If not fully paid and status is 'Paid', it could revert to 'Invoice' or other appropriate status.
-        """
         sale = Sale.query.get(sale_id)
         if not sale:
-            return None, "Sale not found for status update."
+            current_app.logger.error(f"[check_and_update_payment_status] Sale ID {sale_id} not found.")
+            return None, "Sale not found for payment status check."
 
-        # _calculate_sale_details now returns: sale_total, amount_paid, amount_due, total_tax_amount
-        _sale_total, _amount_paid, amount_due, _total_tax = SaleService._calculate_sale_details(sale_id)
+        current_sale_total = Decimal('0.00')
+        for si in sale.sale_items:
+            item_price = si.sale_price if si.sale_price is not None else Decimal('0.00')
+            item_quantity = si.quantity if si.quantity is not None else 0
+            current_sale_total += (item_price * item_quantity)
         
-        if amount_due is None: # Should not happen if sale exists and _calculate_sale_details succeeded
-            current_app.logger.error(f"_calculate_sale_details returned None for amount_due for sale_id: {sale_id}")
-            return sale, "Could not calculate sale details properly."
+        total_paid = Decimal('0.00')
+        for p in sale.payments:
+            total_paid += p.amount
 
         original_status = sale.status
-
-        if amount_due <= Decimal('0.00') and sale.status != 'Paid':
-            if sale.status != 'Void': 
-                sale.status = 'Paid'
-                # Decrement stock when sale becomes Paid
-                updated_stock, stock_error = SaleService._update_stock_for_sale_items(sale, increment=False)
-                if not updated_stock:
-                    # This is tricky: payment is made, sale is Paid, but stock update failed.
-                    # For now, we'll log this. Ideally, this entire block should be atomic or have compensation.
-                    print(f"Critical: Failed to update stock for sale {sale.id} after payment: {stock_error}")
-                    # Potentially raise an error or set a flag on the sale for manual review.
-        elif amount_due > Decimal('0.00') and sale.status == 'Paid':
-            # Sale was Paid, but now is not (e.g. payment reversed - not a current feature, but for robustness)
-            # Revert to 'Invoice' or another appropriate status
-            sale.status = 'Invoice' # Example revert status
-            # Increment stock back if a Paid sale becomes unpaid
-            updated_stock, stock_error = SaleService._update_stock_for_sale_items(sale, increment=True)
-            if not updated_stock:
-                print(f"Critical: Failed to increment stock for sale {sale.id} after status change from Paid: {stock_error}")
-
-        if original_status != sale.status:
-            try:
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                return None, f"Failed to commit status/stock changes: {str(e)}"
         
-        return sale, None # Return the sale instance, potentially with new status
+        if sale.status not in ['Void', 'Quote']: 
+            if total_paid >= current_sale_total and current_sale_total > 0:
+                sale.status = 'Paid'
+            elif total_paid > 0 and total_paid < current_sale_total:
+                sale.status = 'Invoice' 
+            elif total_paid == 0 and current_sale_total > 0 and sale.status == 'Invoice':
+                # If it was 'Invoice' and items are removed making total > 0 but paid is 0, revert to Open
+                # Or, more simply, if no payment, keep/revert to 'Open' unless it's already 'Paid' (which is covered above)
+                pass # Let it remain 'Invoice' if it was already that, or 'Open'
+            elif sale.status != 'Open' and total_paid == 0 and current_sale_total == 0:
+                 # If all items are removed from a non-Open sale, and no payment, make it Open again
+                 sale.status = 'Open'
+            # The key change: If total_paid is 0 and sale_total > 0, it should generally remain 'Open' 
+            # unless explicitly moved to another state like 'Quote'.
+            # The previous logic would set it to 'Invoice'. We want to avoid that for this workflow.
+            # If it was already 'Invoice' and items are added/removed but no payment, it can stay 'Invoice' or go to 'Open'.
+            # For simplicity: if no payment has been made, and it's not a quote/void, it should be 'Open' if it has items, 
+            # or if it was 'Invoice' and now has items and 0 payment.
+            # More direct: if total_paid == 0 and current_sale_total > 0 and sale.status not in ['Quote', 'Void']:
+            #    sale.status = 'Open' # This might be too aggressive if it was manually set to 'Invoice'
+
+            # Revised logic for status update based on payment:
+            if sale.status not in ['Void', 'Quote']:
+                if total_paid >= current_sale_total and current_sale_total > 0:
+                    sale.status = 'Paid'
+                elif total_paid > 0 and total_paid < current_sale_total:
+                    sale.status = 'Invoice' # Partial payment implies an invoice state
+                elif total_paid == 0 and current_sale_total > 0:
+                    if sale.status == 'Paid': # Should not happen if total_paid is 0
+                        pass # Error condition or needs refund logic
+                    elif sale.status == 'Invoice': 
+                        pass # If it was already an Invoice (e.g. set by quote, or partial payment then items removed), let it be
+                    else: # Otherwise, if no payment and items exist, it's 'Open'
+                        sale.status = 'Open' 
+                elif total_paid == 0 and current_sale_total == 0 and sale.status != 'Open':
+                    # If sale becomes empty and no payment, revert to Open if it wasn't already
+                    sale.status = 'Open'
+
+        try:
+            if sale.status != original_status:
+                current_app.logger.info(f"Sale {sale.id} status changing from {original_status} to {sale.status} based on payment. Total: {current_sale_total}, Paid: {total_paid}")
+            db.session.commit() # Commit status change if any
+            return sale, None
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error committing sale status update for Sale ID {sale.id}: {e}")
+            return None, f"Error updating sale status: {str(e)}"
 
     @staticmethod
     def update_sale_details(sale_id, data):

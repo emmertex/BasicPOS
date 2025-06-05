@@ -40,7 +40,7 @@ export function initCombinationItemService() {
 
     // Add event listeners
     if (openCombinationItemModalButton) {
-        openCombinationItemModalButton.addEventListener('click', openCombinationItemModal);
+        openCombinationItemModalButton.addEventListener('click', () => openCombinationItemModal());
     }
     if (closeCombinationItemModalButton) {
         closeCombinationItemModalButton.addEventListener('click', closeCombinationItemModal);
@@ -100,6 +100,12 @@ async function loadItemsForComponentSelection() {
 */
 
 export async function openCombinationItemModal(baseItemIdForEdit = null) {
+    // Check if the first argument is an event object (from direct event listener call)
+    // If so, this is a call to create a NEW item, so baseItemIdForEdit should be null.
+    if (baseItemIdForEdit && typeof baseItemIdForEdit === 'object' && baseItemIdForEdit.target) {
+        baseItemIdForEdit = null;
+    }
+
     if (combinationItemModal) {
         // Clear previous search results and input for component search
         const searchInput = document.getElementById('combination-item-search');
@@ -108,9 +114,9 @@ export async function openCombinationItemModal(baseItemIdForEdit = null) {
         if (searchResults) searchResults.innerHTML = '';
         if (componentQuantityInput) componentQuantityInput.value = '1';
 
-        if (baseItemIdForEdit) {
+        if (baseItemIdForEdit && (typeof baseItemIdForEdit === 'string' || typeof baseItemIdForEdit === 'number')) {
             editingCombinationBaseItemId = baseItemIdForEdit;
-            combinationItemIdInput.value = baseItemIdForEdit; // Store the base item ID
+            combinationItemIdInput.value = String(baseItemIdForEdit); // Store the base item ID
             console.log("Opening combination item modal for EDIT, base Item ID:", baseItemIdForEdit);
             try {
                 showToast('Loading combination item details for editing...', 'info', 2000);
@@ -150,6 +156,7 @@ export async function openCombinationItemModal(baseItemIdForEdit = null) {
                 if (submitCombinationItemButton) submitCombinationItemButton.textContent = 'Save Combination Item';
             }
         } else {
+            // This block will now also be hit if baseItemIdForEdit was an event object
             editingCombinationBaseItemId = null;
             combinationItemIdInput.value = '';
             combinationItemTitleInput.value = '';
@@ -371,8 +378,11 @@ async function searchItems() {
     const query = searchInput.value.trim();
     if (!query) {
         searchResults.innerHTML = '';
+        searchResults.style.display = 'none'; // Also hide if query is cleared
         return;
     }
+
+    searchResults.style.display = 'block'; // Make sure results container is visible for new search
 
     try {
         console.log('Making API call to /items/ with include_variants:true');
@@ -426,6 +436,17 @@ async function searchItems() {
                     });
                     div.classList.add('selected');
                     console.log('Visually selected item for component consideration:', item.title, `(Parent ID: ${item.parent_id})`);
+
+                    // Populate the search input with the selected item's display text
+                    const searchInput = document.getElementById('combination-item-search');
+                    if (searchInput) {
+                        searchInput.value = displayText; // Use the same text shown in the list
+                    }
+
+                    // Hide the search results
+                    if (searchResults) {
+                        searchResults.style.display = 'none'; // New: Just hide, element remains for button handler
+                    }
                 });
                 
                 searchResults.appendChild(div);

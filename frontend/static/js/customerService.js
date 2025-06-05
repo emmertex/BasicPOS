@@ -21,6 +21,11 @@ let editCustomerEmailInput;
 let editCustomerAddressInput;
 let editCustomerCompanyInput;
 
+let submitNewCustomerButton, submitNewCustomerAndAddToSaleButton, closeAddCustomerModalButton;
+let submitUpdateCustomerButton, closeEditCustomerModalButton;
+
+let customerMgmtSearchInput, customerMgmtAddNewButton;
+
 // Callbacks from app.js
 let updateCartDisplayFn = () => console.warn('updateCartDisplayFn not implemented in customerService');
 let createNewSaleFn = async () => { console.warn('createNewSaleFn not implemented in customerService'); return null; };
@@ -50,8 +55,17 @@ export function initCustomerService(appUpdateCartDisplay, appCreateNewSale, appU
     editCustomerAddressInput = document.getElementById('edit-customer-address');
     editCustomerCompanyInput = document.getElementById('edit-customer-company');
 
+    submitNewCustomerButton = document.getElementById('submit-new-customer-button');
+    submitNewCustomerAndAddToSaleButton = document.getElementById('submit-new-customer-and-add-to-sale-button');
+    closeAddCustomerModalButton = document.getElementById('close-add-customer-modal');
+
+    submitUpdateCustomerButton = document.getElementById('submit-update-customer-button');
+    closeEditCustomerModalButton = document.getElementById('close-edit-customer-modal');
+
+    customerMgmtSearchInput = document.getElementById('customer-mgmt-search-input');
+    customerMgmtAddNewButton = document.getElementById('customer-mgmt-add-new-button');
+
     // Event listener for the save button in the edit customer modal
-    const submitUpdateCustomerButton = document.getElementById('submit-update-customer-button');
     if (submitUpdateCustomerButton) {
         submitUpdateCustomerButton.addEventListener('click', handleUpdateCustomer);
     } else {
@@ -59,24 +73,21 @@ export function initCustomerService(appUpdateCartDisplay, appCreateNewSale, appU
     }
 
     // Event listener for the close button of the edit customer modal
-    const closeEditModalButton = document.getElementById('close-edit-customer-modal');
-    if (closeEditModalButton) {
-        closeEditModalButton.addEventListener('click', closeEditCustomerModal);
+    if (closeEditCustomerModalButton) {
+        closeEditCustomerModalButton.addEventListener('click', closeEditCustomerModal);
     } else {
         console.error("close-edit-customer-modal button not found during init!");
     }
 
     // Event listener for the close button of the add customer modal
     // (This might already be in app.js, but good to ensure it's handled if it's purely customer modal related)
-    const closeAddModalButton = document.getElementById('close-add-customer-modal');
-    if (closeAddModalButton) {
-        closeAddModalButton.addEventListener('click', closeAddCustomerModal);
+    if (closeAddCustomerModalButton) {
+        closeAddCustomerModalButton.addEventListener('click', closeAddCustomerModal);
     } else {
         console.warn("close-add-customer-modal button not found during customerService init (might be in app.js).");
     }
 
     // Event listener for the "Add New Customer" button in the customer management section
-    const customerMgmtAddNewButton = document.getElementById('customer-mgmt-add-new-button');
     if (customerMgmtAddNewButton) {
         customerMgmtAddNewButton.addEventListener('click', openAddCustomerModal);
     } else {
@@ -84,12 +95,19 @@ export function initCustomerService(appUpdateCartDisplay, appCreateNewSale, appU
     }
     
     // Event listener for the search input in customer management section
-    const customerMgmtSearchInput = document.getElementById('customer-mgmt-search-input');
     if (customerMgmtSearchInput) {
         customerMgmtSearchInput.addEventListener('input', (event) => loadAndDisplayCustomers(event.target.value));
     } else {
         console.error("customer-mgmt-search-input not found during init!");
     }
+
+    // Event Listeners for Add Customer Modal
+    if (submitNewCustomerButton) {
+        submitNewCustomerButton.addEventListener('click', () => handleSaveNewCustomer(false));
+    } else { console.error("submit-new-customer-button not found"); }
+    if (submitNewCustomerAndAddToSaleButton) {
+        submitNewCustomerAndAddToSaleButton.addEventListener('click', () => handleSaveNewCustomer(true));
+    } else { console.error("submit-new-customer-and-add-to-sale-button not found"); }
 }
 
 export function openAddCustomerModal() {
@@ -219,35 +237,29 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
                         Company: ${customer.company_name || 'N/A'}
                     </div>
                     <div style="margin-top: 5px; display: flex; gap: 5px;">
-                        <button class="edit-customer-btn btn btn-warning" data-customer-id="${customer.id}">Edit</button>
-                        <button class="select-customer-for-sale-btn btn btn-primary" data-customer-id="${customer.id}">Select</button>
+                        <button class="edit-customer-btn btn btn-warning btn-sm" data-customer-id="${customer.id}">Edit</button>
+                        <button class="select-customer-for-sale-btn btn btn-primary btn-sm" data-customer-id="${customer.id}">Select</button>
                     </div>
                 `;
                 custDiv.querySelector('.edit-customer-btn').addEventListener('click', () => openEditCustomerModal(customer.id));
                 custDiv.querySelector('.select-customer-for-sale-btn').addEventListener('click', async () => {
                     state.currentCustomer = customer;
-                    if (customerDetailsCartDiv) { // customerDetailsCartDiv is defined at the top of this module
-                        customerDetailsCartDiv.textContent = `Selected: ${customer.name} (${customer.phone || 'N/A'})`;
-                    }
+                    // customerDetailsCartDiv is now managed by updateCartCustomerDisplayFn from cart.js via app.js
+                    updateCartCustomerDisplayFn(state.currentCustomer);
 
                     if (state.currentSale && state.currentSale.id) {
                         try {
                             const saleAfterAssociation = await apiCall(`/sales/${state.currentSale.id}`, 'PUT', { customer_id: customer.id });
                             if (saleAfterAssociation && saleAfterAssociation.id) {
                                 state.currentSale = saleAfterAssociation;
-                                if (state.currentSale.customer) {
+                                // state.currentCustomer might be updated server-side if sale.customer is eager loaded
+                                if (state.currentSale.customer) { 
                                     state.currentCustomer = state.currentSale.customer;
                                 }
-                                // updateCartCustomerDisplay is now called via state change trigger in app.js or directly
-                                updateCartCustomerDisplayFn(state.currentCustomer); // Ensure this is the one from app.js via init
-                                updateCartDisplayFn(); // Ensure this is the one from app.js via init
-
-                                console.log('[customerService - select] Customer associated. Sale ID:', state.currentSale.id, 'Customer ID:', state.currentSale.customer_id);
-                                showToast(`Customer ${state.currentCustomer.name} associated with sale ${state.currentSale.id}.`, 'success');
+                                updateCartCustomerDisplayFn(state.currentCustomer);
+                                updateCartDisplayFn(); 
                             } else {
-                                showToast(`Failed to associate ${customer.name}. Retrying with full load.`, 'error');
-                                // await loadSaleIntoCart(state.currentSale.id); // loadSaleIntoCart is not in this module
-                                console.warn("loadSaleIntoCart cannot be called from customerService directly. UI might be stale.");
+                                showToast(`Failed to associate ${customer.name} with current sale.`, 'error');
                             }
                         } catch (error) {
                             console.error('Error associating customer from list:', error);
@@ -255,14 +267,46 @@ export async function loadAndDisplayCustomers(searchTerm = '') {
                         }
                     } else {
                         showToast(`Customer ${customer.name} selected. Will be used for next new sale.`, 'info');
-                        // If no current sale, just updating the state.currentCustomer and its display in cart section
                         updateCartCustomerDisplayFn(state.currentCustomer);
                     }
+                    shrinkLeftPanel();
+                    expandParkedSales();
                 });
                 customerMgmtListDiv.appendChild(custDiv);
             });
     } else {
         customerMgmtListDiv.innerHTML = '<p>No customers found. Click "Add New Customer" to add one.</p>';
+    }
+}
+
+export async function openEditCustomerModal(customerId) {
+    if (!editCustomerModal || !editCustomerIdInput || !editCustomerNameInput || !editCustomerPhoneInput || !editCustomerEmailInput || !editCustomerAddressInput || !editCustomerCompanyInput ) {
+        console.error("openEditCustomerModal: One or more edit customer modal elements not found/initialized!");
+        showToast("Error: Edit customer dialog is missing or not ready.", "error");
+        return;
+    }
+    try {
+        const customer = await apiCall(`/customers/${customerId}`);
+        if (customer && customer.id) {
+            editCustomerIdInput.value = customer.id;
+            editCustomerNameInput.value = customer.name;
+            editCustomerPhoneInput.value = customer.phone || '';
+            editCustomerEmailInput.value = customer.email || '';
+            editCustomerAddressInput.value = customer.address || '';
+            editCustomerCompanyInput.value = customer.company_name || '';
+            if (editCustomerModal) editCustomerModal.style.display = 'block';
+        } else {
+            showToast(`Could not fetch details for customer ID ${customerId}.`, 'error');
+        }
+    } catch (error) {
+        console.error(`Error fetching customer ${customerId} for edit:`, error);
+        showToast(`Error fetching customer: ${error.message || 'Unknown error'}`, 'error');
+    }
+}
+
+export function closeEditCustomerModal() {
+    if (editCustomerModal) {
+        editCustomerModal.style.display = 'none';
     }
 }
 
@@ -279,57 +323,29 @@ export async function handleUpdateCustomer() {
     const address = editCustomerAddressInput.value.trim();
     const company = editCustomerCompanyInput.value.trim();
 
-    if (!name || !phone) { // Basic validation: Name is required. Phone might also be based on your UI
-        showToast('Customer name is required.', 'error');
+    if (!name) {
+        showToast('Customer name is required.', 'warning');
         return;
     }
-
-    const customerData = { name, phone, email, address, company_name: company };
+    const customerData = { name, phone: phone || null, email, address, company_name: company };
     const updatedCustomer = await apiCall(`/customers/${id}`, 'PUT', customerData);
 
-    if (updatedCustomer) {
+    if (updatedCustomer && updatedCustomer.id) {
         showToast('Customer updated successfully!', 'success');
         closeEditCustomerModal();
-        loadAndDisplayCustomers(); 
+        loadAndDisplayCustomers();
         if (state.currentCustomer && state.currentCustomer.id === parseInt(id)) {
             state.currentCustomer = updatedCustomer;
-            updateCartCustomerDisplayFn(state.currentCustomer); // Update cart display if current customer was edited
+            updateCartCustomerDisplayFn(state.currentCustomer);
         }
-    }
-}
-
-export function openEditCustomerModal(customerId) {
-    if (!editCustomerModal || !editCustomerIdInput || !editCustomerNameInput || !editCustomerPhoneInput || !editCustomerEmailInput || !editCustomerAddressInput || !editCustomerCompanyInput ) {
-        console.error("openEditCustomerModal: One or more edit customer modal elements not found/initialized!");
-        showToast("Error: Edit customer dialog is missing or not ready.", "error");
-        return;
-    }
-    apiCall(`/customers/${customerId}`).then(customer => {
-        if (customer) {
-            editCustomerIdInput.value = customer.id;
-            editCustomerNameInput.value = customer.name;
-            editCustomerPhoneInput.value = customer.phone; // Assuming phone is not nullable in DB or handled
-            editCustomerEmailInput.value = customer.email || '';
-            editCustomerAddressInput.value = customer.address || '';
-            editCustomerCompanyInput.value = customer.company_name || '';
-            if (editCustomerModal) editCustomerModal.style.display = 'block';
-        }
-    });
-}
-
-export function closeEditCustomerModal() {
-    if (editCustomerModal) {
-        editCustomerModal.style.display = 'none';
     } else {
-        console.warn("closeEditCustomerModal: editCustomerModal element not initialized.");
+        const errorMessage = updatedCustomer && updatedCustomer.error ? updatedCustomer.error : 'Invalid response from server.';
+        showToast(`Failed to update customer. ${errorMessage}`, 'error');
     }
 }
 
-// Function to close the add customer modal (referenced in app.js event listeners)
 export function closeAddCustomerModal() {
     if (addCustomerModal) {
         addCustomerModal.style.display = 'none';
-    } else {
-        console.warn("closeAddCustomerModal: addCustomerModal element not initialized.");
     }
-} 
+}

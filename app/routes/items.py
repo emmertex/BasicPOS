@@ -7,6 +7,12 @@ import os # Added for path manipulation
 
 bp = Blueprint('items', __name__)
 
+# Helper function for boolean conversion
+def to_bool(value):
+    if isinstance(value, str):
+        return value.lower() in ['true', '1', 'yes']
+    return bool(value)
+
 def item_to_dict(item):
     if not item:
         return None
@@ -77,12 +83,7 @@ def create_item_route():
         raw_stock_quantity = form_data.get('stock_quantity')
         item_data['stock_quantity'] = int(raw_stock_quantity) if raw_stock_quantity is not None and raw_stock_quantity.strip() != '' else 0
         
-        # Boolean fields (handle 'true'/'false' strings, or '1'/'0')
-        def to_bool(value):
-            if isinstance(value, str):
-                return value.lower() in ['true', '1', 'yes']
-            return bool(value)
-
+        # Boolean fields now use the module-level to_bool
         item_data['is_stock_tracked'] = to_bool(form_data.get('is_stock_tracked', True))
         item_data['description'] = form_data.get('description')
         item_data['show_on_website'] = to_bool(form_data.get('show_on_website', False))
@@ -161,18 +162,12 @@ def update_item_route(item_id):
 
     item_data = {}
     try:
-        # Helper for boolean conversion
-        def to_bool(value):
-            if isinstance(value, str):
-                return value.lower() in ['true', '1', 'yes']
-            return bool(value)
-
-        # Populate item_data only with fields present in the form
+        # Boolean conversion uses the module-level to_bool
         if 'title' in form_data:
             item_data['title'] = form_data['title']
         if form_data.get('price') is not None:
             item_data['price'] = float(form_data['price'])
-        if form_data.get('sku') is not None: # SKU can be empty string if user wants to trigger auto-generation for a new version perhaps, or just cleared
+        if form_data.get('sku') is not None:
             item_data['sku'] = form_data['sku'].strip()
         if form_data.get('parent_id') is not None:
             item_data['parent_id'] = int(form_data['parent_id'])

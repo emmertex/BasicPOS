@@ -43,6 +43,8 @@ export async function apiCall(endpoint, method = 'GET', body = null, queryParams
          options.body = JSON.stringify({}); 
     }
 
+    console.log('Requesting URL:', url, 'with options:', options);
+
     try {
         const response = await fetch(url, options);
         if (!response.ok) {

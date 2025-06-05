@@ -43,6 +43,17 @@ let imagePreviewModal;
 let imagePreviewModalTitle;
 let imagePreviewModalImage;
 
+// Add/Edit Item Modal Buttons (to be initialized in initItemService)
+let submitItemButton;
+let submitItemAndAddToCartButton;
+let closeAddEditItemModalButton;
+
+// Variant Selection Modal buttons
+let closeVariantSelectionModalButton; // For its own close button if not handled by window click
+
+// Image Preview Modal buttons
+let closeImagePreviewModalButton; // For its own close button if not handled by window click
+
 export function initItemService() {
     // Item Search
     itemSearchInput = document.getElementById('item-search-input');
@@ -66,18 +77,51 @@ export function initItemService() {
     manageVariantsButton = document.getElementById('manage-variants-button');
     itemImageDropZone = document.getElementById('item-image-drop-zone');
 
+    // Add/Edit Item Modal Buttons
+    submitItemButton = document.getElementById('submit-item-button');
+    submitItemAndAddToCartButton = document.getElementById('submit-item-and-add-to-cart-button');
+    closeAddEditItemModalButton = document.getElementById('close-add-edit-item-modal');
+
     // Variant Selection Modal
     variantSelectionModal = document.getElementById('variant-selection-modal');
     variantModalTitle = document.getElementById('variant-modal-title');
     variantListContainer = document.getElementById('variant-list-container');
+    closeVariantSelectionModalButton = document.getElementById('close-variant-selection-modal');
 
     // Image Preview Modal
     imagePreviewModal = document.getElementById('imagePreviewModal');
     imagePreviewModalTitle = document.getElementById('imagePreviewModalTitle');
     imagePreviewModalImage = document.getElementById('imagePreviewModalImage');
+    closeImagePreviewModalButton = document.getElementById('closeImagePreviewModal');
     
     // Initial setup that depends on DOM elements being ready
     setupItemImageDropZone(); 
+
+    // Event Listeners for Add/Edit Item Modal internal buttons
+    if (submitItemButton) {
+        submitItemButton.addEventListener('click', () => handleSaveItem(false));
+    } else { console.warn("submit-item-button not found during itemService init"); }
+    
+    if (submitItemAndAddToCartButton) {
+        submitItemAndAddToCartButton.addEventListener('click', () => handleSaveItem(true));
+    } else { console.warn("submit-item-and-add-to-cart-button not found during itemService init"); }
+
+    if (closeAddEditItemModalButton) {
+        closeAddEditItemModalButton.addEventListener('click', closeAddEditItemModal);
+    } else { console.warn("close-add-edit-item-modal button not found during itemService init"); }
+
+    if (manageVariantsButton) {
+        manageVariantsButton.addEventListener('click', handleManageVariantsClick);
+    } else { console.warn("manage-variants-button not found during itemService init"); }
+
+    // Event Listeners for other modal close buttons (if they have dedicated close buttons)
+    if(closeVariantSelectionModalButton) {
+        closeVariantSelectionModalButton.addEventListener('click', closeVariantSelectionModal);
+    } else { console.warn("close-variant-selection-modal button not found during itemService init"); }
+
+    if(closeImagePreviewModalButton) {
+        closeImagePreviewModalButton.addEventListener('click', closeImagePreviewModal);
+    } else { console.warn("closeImagePreviewModal button not found during itemService init"); }
 
     // Delegated listener for deleting images within item modal
     if (itemImagesListDiv) {

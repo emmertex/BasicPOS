@@ -10,6 +10,8 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy import or_, and_
 
 class ItemService:
+    VERSIONABLE_FIELDS = [ 'title', 'price' ]
+
     @staticmethod
     def create_item(data, image_files=None):
         try:
@@ -61,6 +63,7 @@ class ItemService:
             # Process and save images
             if image_files and new_item.id:
                 first_image = True
+                photos_added_to_session = False
                 for file_storage in image_files:
                     if file_storage and file_storage.filename: # Ensure file_storage is not empty
                         base_filename, error_msg = ImageService.save_processed_image(file_storage)
@@ -71,10 +74,12 @@ class ItemService:
                                 is_primary=first_image 
                             )
                             db.session.add(new_photo)
+                            photos_added_to_session = True
                             first_image = False # Only the first uploaded image is primary
                         else:
                             current_app.logger.error(f"Failed to process image for item {new_item.id if new_item else 'UnknownItem'}: {file_storage.filename}. Error: {error_msg}")
-                if db.session.new: # Check if there are new Photo objects to commit
+                
+                if photos_added_to_session: # Commit only if new photos were actually added to session
                     db.session.commit() # Commit photos
 
             return new_item, None
@@ -276,39 +281,36 @@ class ItemService:
     @staticmethod
     def update_item(item_id, data, image_files=None):
         item_to_update = Item.query.get(item_id)
-        if not item_to_update or not item_to_update.is_current_version:
-            return None, "Item not found or not current version."
+        if not item_to_update:
+            return None, "Item not found."
+        if not item_to_update.is_current_version:
+            # This case should ideally be prevented by UI logic, 
+            # but as a safeguard for direct API calls:
+            return None, "Cannot update an old version of an item. Please update the current version."
 
-        # Check if SKU is being changed and if the new SKU is valid
-        new_sku = data.get('sku', '').strip()
-        if new_sku and new_sku != item_to_update.sku:
-            existing_item_with_new_sku = Item.query.filter(
-                Item.sku == new_sku,
-                Item.is_current_version == True,
-                Item.is_active == True,
-                Item.id != item_id # Exclude the item being updated itself from the check
-            ).first()
-            if existing_item_with_new_sku:
-                return None, f"New SKU '{new_sku}' is already in use by another active item."
+        # Determine if a new version needs to be created
+        create_new_version = False
+        versionable_changes = {}
+        
+        # Use the class-level constant
+        for field in ItemService.VERSIONABLE_FIELDS:
+            if field in data and getattr(item_to_update, field) != data[field]:
+                create_new_version = True
+                versionable_changes[field] = data[field]
+        
+        # Image changes also trigger a new version if versionable fields are also changing,
+        # or if configured to always version on image change.
+        # For now, let's assume new images on their own don't force a new version unless other versionable fields change.
+        # If versioning on image change is desired, add: if image_files: create_new_version = True
 
-        # Check if any versioned field is being updated (including SKU now)
-        versioned_fields = ['parent_id', 'sku', 'title', 'description', 'price', 'show_on_website', 'is_active', 'is_stock_tracked']
-        is_versioning_needed = any(field in data and getattr(item_to_update, field) != data[field] for field in versioned_fields)
+        # if image_files and not create_new_version:
+            # If only images changed, and we decided this means no new version,
+            # process images on current item, then return.
+            # ImageService.process_and_associate_images(item_to_update.id, image_files, data.get('photos_to_delete'))
+            # db.session.commit()
+            # return item_to_update, None
 
-        updated_item_instance = None # To store the instance that photos should be linked to
-
-        if 'stock_quantity' in data and not is_versioning_needed and len(data.keys()) == 1:
-            # Only stock_quantity is updated, no versioning needed
-            try:
-                item_to_update.stock_quantity = data['stock_quantity']
-                db.session.commit()
-                updated_item_instance = item_to_update
-                # Image processing will happen after this block
-            except Exception as e:
-                db.session.rollback()
-                return None, str(e)
-
-        elif is_versioning_needed:
+        if create_new_version:
             try:
                 # Create a new version
                 item_to_update.is_current_version = False
@@ -319,7 +321,7 @@ class ItemService:
                     for f in item_to_update.__table__.columns 
                     if f.name != 'id'
                 }
-                for key, value in data.items():
+                for key, value in versionable_changes.items():
                     if key != 'id': 
                        new_version_data[key] = value
                 
@@ -415,7 +417,7 @@ class ItemService:
                     # Decide if this should be a hard error for the update operation
                     # For now, log and proceed, item data update might have succeeded.
 
-        if not updated_item_instance and not is_versioning_needed and 'stock_quantity' not in data and not image_files:
+        if not updated_item_instance and not create_new_version and 'stock_quantity' not in data and not image_files:
              return item_to_update, "No versionable changes detected and no new images."
 
         return updated_item_instance, None # Return the (potentially new version of) item
@@ -469,25 +471,7 @@ class ItemService:
             current_app.logger.error(f"Error in delete_item for item ID {item_id}: {e}")
             return False, str(e)
 
-    @staticmethod
-    def get_all_items(sku=None, title_query=None, is_active_filter=None):
-        query = Item.query.options(selectinload(Item.photos), selectinload(Item.variants))
-        
-        # Current version is always implicitly part of item fetching unless stated otherwise for admin views
-        query = query.filter(Item.is_current_version == True)
+    # Removed ItemService.get_all_items method as it appears to be unused.
+    # get_items_for_display is the primary method for fetching items with display logic.
 
-        if is_active_filter is not None: # Apply is_active filter if provided
-            query = query.filter(Item.is_active == is_active_filter)
-
-        if sku:
-            # Prioritize exact SKU match if provided
-            query = query.filter(Item.sku == sku)
-        elif title_query: # Use elif to not override SKU if both somehow provided and SKU is stricter
-            search_term = f"%{title_query}%"
-            query = query.filter(Item.title.ilike(search_term))
-        
-        # Add ordering, e.g., by title or ID
-        query = query.order_by(Item.title.asc())
-        
-        items = query.all()
-        return items 
+    # If any other static methods exist in ItemService, they would continue here. 

@@ -361,7 +361,8 @@
         </div>
     </div>
 
-    <div id="toast-container"></div> <!-- Toast notifications will appear here -->
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
 
     <!-- Quick Add - New Item Modal -->
     <div id="quick-add-new-item-modal" class="modal" style="display: none;">
@@ -375,6 +376,10 @@
             </div>
             <div id="qai-item-search-results" style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
                 <!-- Item search results will appear here -->
+            </div>
+            <div>
+                <label for="qai-item-color">Button Color:</label>
+                <input type="color" id="qai-item-color" value="#D0E4F5"> 
             </div>
             <button id="qai-submit-new-item-button" class="btn btn-success" style="margin-top: 15px;">Add Selected Item to Page</button>
         </div>
@@ -400,49 +405,53 @@
             <button id="qai-submit-new-page-link-button" class="btn btn-info" style="margin-top: 15px;">Add Page Link</button>
         </div>
     </div>
-
-    <!-- Edit Sale Item Modal -->
-    <div id="editSaleItemModal" class="modal" style="display: none;">
+    <!-- Edit Sale Item Modal (for items in cart) -->
+    <div id="edit-sale-item-modal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close-button" onclick="closeEditSaleItemModal()">&times;</span>
-            <h2>Edit Cart Item</h2>
-            <input type="hidden" id="editSaleItemId">
-            <input type="hidden" id="editSaleItemOriginalPrice">
+            <span class="close-button" id="close-edit-sale-item-modal-button">&times;</span>
+            <h2>Edit Cart Item: <span id="edit-sale-item-name">Item Name</span></h2>
+            <input type="hidden" id="edit-sale-item-id">
             
-            <div>
-                <p><strong>Item:</strong> <span id="editSaleItemName"></span></p>
-                <p><strong>Original Price:</strong> $<span id="editSaleItemOriginalPriceDisplay"></span></p>
+            <div class="form-group">
+                <label>Original Unit Price: $<span id="edit-sale-item-original-price">0.00</span></label>
             </div>
 
-            <div>
-                <label for="itemDiscountPercent">Discount (%):</label>
-                <input type="number" id="itemDiscountPercent" placeholder="e.g., 10">
+            <div class="form-group">
+                <label for="edit-sale-item-quantity">Quantity:</label>
+                <input type="number" id="edit-sale-item-quantity" min="1" value="1">
             </div>
-            <div>
-                <label for="itemDiscountAbsolute">Discount ($):</label>
-                <input type="number" id="itemDiscountAbsolute" placeholder="e.g., 5.00">
+            
+            <div class="form-group">
+                <label for="edit-sale-item-discount-percent">Discount (%):</label>
+                <input type="number" id="edit-sale-item-discount-percent" min="0" step="0.01" placeholder="e.g., 10 for 10%">
             </div>
-            <div>
-                <label for="itemFinalPrice">Final Price ($):</label>
-                <input type="number" id="itemFinalPrice">
+
+            <div class="form-group">
+                <label for="edit-sale-item-discount-absolute">Discount ($):</label>
+                <input type="number" id="edit-sale-item-discount-absolute" min="0" step="0.01" placeholder="e.g., 5 for $5 off">
             </div>
-            <div>
-                <label for="itemNotes">Notes:</label>
-                <textarea id="itemNotes" rows="3" placeholder="Add any notes for this item"></textarea>
+
+            <div class="form-group">
+                <label>Calculated New Unit Price: $<span id="edit-sale-item-final-price">0.00</span></label>
             </div>
-            <button onclick="handleSaveSaleItemDetails()" class="btn btn-success">Save Changes</button>
+
+            <div class="form-group">
+                <label for="edit-sale-item-notes">Notes for this item:</label>
+                <textarea id="edit-sale-item-notes" rows="3"></textarea>
+            </div>
+            
+            <button id="save-edit-sale-item-button" class="btn btn-success">Save Changes</button>
         </div>
     </div>
 
     <!-- Image Preview Modal -->
     <div id="imagePreviewModal" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 80vw; max-height: 80vh;"> 
             <span class="close-button" id="closeImagePreviewModal">&times;</span>
-            <h3 id="imagePreviewModalTitle">Item Image</h3>
-            <img id="imagePreviewModalImage" src="" alt="Item Preview" style="width: 100%; max-height: 70vh; object-fit: contain;">
+            <h2 id="imagePreviewModalTitle">Image Preview</h2>
+            <img id="imagePreviewModalImage" src="" alt="Image Preview" style="width: 100%; height: auto; max-height: 70vh; object-fit: contain;">
         </div>
     </div>
-
     <!-- Print Options Modal -->
     <div id="print-options-modal" class="modal" style="display: none;">
         <div class="modal-content">

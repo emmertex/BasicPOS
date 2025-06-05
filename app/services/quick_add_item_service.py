@@ -1,44 +1,31 @@
 from app import db
 from app.models import QuickAddItem, Item # Item might be needed for eager loading or joining if we expand to_dict
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 from flask import current_app
 
 class QuickAddItemService:
 
     @staticmethod
     def get_quick_add_items_by_page(page_number):
-        """Fetches quick add items for a specific page, ordered by position.
-           Only includes items that are currently active and the current version."""
+        """Fetches all quick add items for a specific page, ordered by position."""
         try:
-            items_query = QuickAddItem.query \
-                .join(Item, QuickAddItem.item_id == Item.id) \
+            query = QuickAddItem.query \
                 .filter(QuickAddItem.page_number == page_number) \
-                .filter(Item.is_active == True) \
-                .filter(Item.is_current_version == True) \
-                .options(joinedload(QuickAddItem.item).selectinload(Item.photos)) \
+                .options(
+                    selectinload(QuickAddItem.item) # Eagerly load the related Item
+                    .selectinload(Item.photos)    # Then, from that Item, eagerly load its Photos
+                ) \
                 .order_by(QuickAddItem.position.asc())
             
-            # For page_link types, we don't join with Item, so fetch them separately and combine
-            page_links_query = QuickAddItem.query \
-                .filter(QuickAddItem.page_number == page_number) \
-                .filter(QuickAddItem.type == 'page_link') \
-                .order_by(QuickAddItem.position.asc())
-
-            # Execute queries
-            active_items = items_query.all()
-            page_links = page_links_query.all()
-
-            # Combine and sort by original position, as the separate queries might mess up unified ordering if not careful.
-            # A more robust way if positions can overlap between types (which they shouldn't if managed well)
-            # would be to fetch all for the page then filter in Python, but that's less efficient.
-            # Assuming positions are unique across all types for a given page.
+            results = query.all()
             
-            combined_results = sorted(active_items + page_links, key=lambda x: x.position)
-            
-            return [item.to_dict() for item in combined_results]
+            # The to_dict method in QuickAddItem model should handle serialization,
+            # including cases where item might be None (for page_links or if an item was deleted)
+            # or if item.is_active/is_current_version is False (to_dict can reflect this if needed)
+            return [item.to_dict() for item in results]
         except Exception as e:
             current_app.logger.error(f"Error fetching quick add items for page {page_number}: {e}")
-            return []
+            return [] # Return empty list on error to prevent breaking frontend
 
     @staticmethod
     def create_quick_add_item(data):
@@ -207,7 +194,7 @@ class QuickAddItemService:
                 print(f"No position updates made for Quick Add Items on page {page_number}.")
 
             # After potential commit, fetch all items for the page again to return them in the new order
-            final_ordered_items = QuickAddItem.query.options(joinedload(QuickAddItem.item)) \
+            final_ordered_items = QuickAddItem.query.options(selectinload(QuickAddItem.item)) \
                                           .filter_by(page_number=page_number) \
                                           .order_by(QuickAddItem.position.asc()) \
                                           .all()

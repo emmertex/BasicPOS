@@ -1,9 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.services.sale_service import SaleService
 from app.routes.items import item_to_dict # Corrected import
 from app.routes.customers import customer_to_dict # Import for customer details
 from app.models.customer import Customer # To fetch customer object
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 # Import payment_to_dict - might cause circular if payments imports sale_to_dict directly
 # It's better if payment_to_dict is self-contained or defined in a utility module.
 # For now, let's assume app.routes.payments.payment_to_dict is accessible or defined here if simple enough.
@@ -18,7 +18,7 @@ def _simple_payment_to_dict_for_sale(payment):
     return {
         'id': payment.id,
         'payment_type': payment.payment_type,
-        'amount': float(payment.amount) if payment.amount is not None else None,
+        'amount': float(payment.amount) if payment.amount is not None else 0.0,
         'payment_date': payment.payment_date.isoformat() if payment.payment_date else None
     }
 
@@ -33,16 +33,21 @@ def sale_item_to_dict(sale_item):
 
     # Safely get price_at_sale, defaulting to None if attribute is missing or value is None
     price_at_sale_value = getattr(sale_item, 'price_at_sale', None)
+    discount_type_value = getattr(sale_item, 'discount_type', None)
+    discount_value_value = getattr(sale_item, 'discount_value', None)
 
     return {
         'id': sale_item.id,
         'sale_id': sale_item.sale_id,
         'item_id': sale_item.item_id,
         'item': item_to_dict(sale_item.item) if sale_item.item else None, 
-        'sale_price': float(sale_item.sale_price) if sale_item.sale_price is not None else None,
+        'quantity': sale_item.quantity,
         'price_at_sale': float(price_at_sale_value) if price_at_sale_value is not None else None,
+        'discount_type': discount_type_value,
+        'discount_value': float(discount_value_value) if discount_value_value is not None else None,
+        'sale_price': float(sale_item.sale_price) if sale_item.sale_price is not None else None,
         'notes': sale_item.notes,
-        'quantity': sale_item.quantity
+        'line_total': float(sale_item.line_total) if hasattr(sale_item, 'line_total') and sale_item.line_total is not None else (sale_item.quantity * sale_item.sale_price)
     }
 
 
@@ -59,7 +64,16 @@ def sale_to_dict(sale):
     # Use SaleService method to keep logic centralized if complex, or calculate directly
     # For now, direct calculation for simpler _calculate_sale_details call
     from app.services.sale_service import SaleService # Import here to use _calculate_sale_details
-    sale_total, amount_paid, amount_due, total_tax = SaleService._calculate_sale_details(sale.id)
+    sale_total_calc = sum(si.line_total for si in sale.sale_items if hasattr(si, 'line_total'))
+    amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
+    amount_due_calc = sale_total_calc - amount_paid_calc
+    
+    # For total_tax, assuming it's part of SaleService logic and not directly on Sale model for now.
+    # If GST_RATE_PERCENTAGE is available, we can calculate it here as well.
+    gst_rate = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', 10))
+    total_tax_calc = Decimal('0.00')
+    if sale_total_calc > 0 and gst_rate > 0:
+        total_tax_calc = (sale_total_calc * (gst_rate / (Decimal('100') + gst_rate))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     return {
         'id': sale.id,
@@ -73,10 +87,10 @@ def sale_to_dict(sale):
         'purchase_order_number': sale.purchase_order_number,
         'sale_items': [sale_item_to_dict(si) for si in sale.sale_items],
         'payments': [_simple_payment_to_dict_for_sale(p) for p in sale.payments], 
-        'sale_total': float(sale_total) if sale_total is not None else 0.0,
-        'amount_paid': float(amount_paid) if amount_paid is not None else 0.0,
-        'amount_due': float(amount_due) if amount_due is not None else 0.0,
-        'total_tax': float(total_tax) if total_tax is not None else 0.0,
+        'sale_total': float(sale_total_calc),
+        'amount_paid': float(amount_paid_calc),
+        'amount_due': float(amount_due_calc),
+        'total_tax': float(total_tax_calc),
     }
 
 @bp.route('/', methods=['POST'])
@@ -160,9 +174,10 @@ def update_sale_item_route(sale_id, sale_item_id):
     if not data:
         return jsonify({"error": "Invalid input, no data provided for update."}), 400
     
-    # Basic validation: Ensure at least one modifiable field is present
-    if not any(key in data for key in ['quantity', 'sale_price', 'notes']):
-        return jsonify({"error": "Invalid input, provide quantity, sale_price, or notes to update."}), 400
+    # Expanded list of potentially updatable fields from frontend
+    allowed_keys = ['quantity', 'notes', 'discount_type', 'discount_value']
+    if not any(key in data for key in allowed_keys):
+        return jsonify({"error": f"Invalid input, provide at least one of the following to update: {', '.join(allowed_keys)}."}), 400
 
     updated_sale_item, error = SaleService.update_sale_item_details(sale_id, sale_item_id, data)
 
@@ -170,8 +185,7 @@ def update_sale_item_route(sale_id, sale_item_id):
         status_code = 404 if "not found" in error.lower() else 400
         return jsonify({"error": error}), status_code
     
-    # Return the entire updated sale, as item changes affect the sale totals and representation
-    updated_sale = SaleService.get_sale_by_id(sale_id)
+    updated_sale = SaleService.get_sale_by_id(sale_id) 
     return jsonify(sale_to_dict(updated_sale)), 200
 
 @bp.route('/<int:sale_id>/items/<int:sale_item_id>', methods=['DELETE'])

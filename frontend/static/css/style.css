@@ -881,163 +881,6 @@ button:not([class]) {
     display: block;
     margin-bottom: 5px;
 }
-
-/* Quick Add Dashboard Styles */
-#quick-add-dashboard-section {
-    display: block; 
-    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-    transform: translateY(0);
-    opacity: 1;
-    flex-grow: 20; /* Allow quick add to grow when visible and search is not */
-}
-
-#quick-add-dashboard-section.collapsed {
-    display: none; /* This will remove it from layout flow */
-    opacity: 0;
-    transform: tranlateY(-20px); /* Optional: slight visual cue for 'disappearing' */
-    /* Remove other properties that are irrelevant when display:none */
-    /* max-height: 0; */
-    /* padding-top: 0; */
-    /* padding-bottom: 0; */
-    /* margin-top: 0; */
-    /* margin-bottom: 0; */
-    /* border-top-width: 0; */
-    /* border-bottom-width: 0; */
-}
-
-#quick-add-page-info {
-    margin-bottom: 10px;
-    font-size: 0.9em;
-    color: #555;
-}
-
-#quick-add-grid-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); /* Adjust minmax for desired button size */
-    gap: 10px;
-    padding: 10px;
-    background-color: #e9e9e9;
-    border-radius: 5px;
-    min-height: 150px; /* Ensure it has some height even when empty */
-}
-
-.quick-add-item {
-    padding: 15px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    background-color: #f8f8f8; /* Default color */
-    color: #333;
-    text-align: center;
-    cursor: pointer;
-    font-size: 0.9em;
-    word-wrap: break-word;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 90px; /* Minimum height for items */
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;
-}
-
-.quick-add-item:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
-}
-
-.quick-add-item.type-item {
-    /* Specific styles for type 'item' if needed */
-    /* background-color: #e6fff2; */
-}
-
-.quick-add-item.type-page_link {
-    /* Specific styles for type 'page_link' if needed */
-    /* background-color: #e6f2ff; */
-    font-weight: bold;
-}
-
-/* Style for the label within quick-add-item if needed, e.g., for text overflow */
-.quick-add-item-label {
-    /* max-height: 3.6em; /* Roughly 2 lines of text */
-    /* overflow: hidden; */
-    /* text-overflow: ellipsis; */
-}
-
-/* Styles for Quick Add Edit Mode */
-.quick-add-item .delete-qai-btn {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    background-color: #ff4d4d;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-    line-height: 20px;
-    text-align: center;
-    cursor: pointer;
-    opacity: 0.8;
-    transition: opacity 0.2s;
-}
-
-.quick-add-item .delete-qai-btn:hover {
-    opacity: 1;
-}
-
-.quick-add-item.dragging {
-    opacity: 0.5;
-    border-style: dashed;
-}
-
-/* Make quick add items aware they are draggable in edit mode */
-.quick-add-item.editable {
-    cursor: grab; /* Indicates draggable */
-    position: relative; /* For absolute positioning of delete button */
-}
-
-.quick-add-item.editable.is-back-button {
-    cursor: default; /* Non-draggable 'Back' button */
-}
-
-.quick-add-item.has-image {
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    color: white; /* Default text color for labels on images, adjust as needed */
-    text-shadow: 1px 1px 2px black; /* Make label more readable on various images */
-}
-
-/* Style for the label when item has an image background */
-.quick-add-item-image-label {
-    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent background for label */
-    padding: 3px 6px;
-    border-radius: 3px;
-    font-size: 0.9em;
-    /* Position it if needed, e.g., at the bottom */
-    /* position: absolute; */
-    /* bottom: 5px; */
-    /* left: 5px; */
-    /* right: 5px; */
-    /* text-align: center; */
-}
-
-#quick-add-controls button {
-    padding: 6px 10px;
-    font-size: 0.85em;
-    margin-left: 5px;
-}
-
-#quick-add-new-item-modal .item-search-result-for-quickadd {
-    padding: 8px;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-}
-#quick-add-new-item-modal .item-search-result-for-quickadd:hover {
-    background-color: #f0f0f0;
-}
-
 /* Rich Item Search Results */
 .item-search-result-rich {
     display: flex;
@@ -1786,3 +1629,217 @@ button {
 #combination-item-modal .add-component-controls {
 /* ... existing code ... */
 }
+
+#quick-add-dashboard-section h2 {
+    margin-bottom: 10px; /* Existing, ensure it's there */
+}
+
+#quick-add-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Existing, adjust minmax as needed */
+    gap: 10px; /* Existing */
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+}
+
+.quick-add-item, .quick-add-page-link {
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    position: relative; /* For absolute positioned children like image and delete button */
+    box-sizing: border-box;
+    overflow: hidden; /* To contain full-bleed images */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 90px; /* Ensure a minimum size, consistent with your screenshot */
+    border: 1px solid rgba(0, 0, 0, 0.1); /* Subtle border */
+    color: #333; /* Default dark text color */
+    word-wrap: break-word; /* Prevent long words from breaking layout */
+    transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out; /* For hover effects */
+}
+
+.quick-add-item:hover, .quick-add-page-link:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+
+.quick-add-item-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Fill the box, cropping if necessary */
+    z-index: 1; /* Behind the title */
+    border-radius: 3px; /* Match parent's border-radius if any part shows */
+}
+
+/* Default state for item title - centered when no image */
+.quick-add-item .item-title {
+    position: relative; /* Ensure it can have z-index if needed */
+    z-index: 2;
+    font-weight: bold;
+    font-size: 0.9em;
+    padding: 4px; /* Some padding around the text */
+}
+
+/* Styling for item title when an image is present */
+.quick-add-item.has-image {
+    justify-content: flex-start; /* Align title to the top */
+    padding: 0; /* Remove padding to allow image to fill, title will have its own */
+}
+
+.quick-add-item.has-image .item-title {
+    background-color: rgba(0, 0, 0, 0.45); /* Semi-transparent dark overlay */
+    color: white;
+    padding: 5px 8px;
+    border-radius: 0 0 3px 3px; /* Rounded bottom corners if at top */
+    margin: 0;
+    width: 100%; /* Make overlay span width of tile */
+    box-sizing: border-box;
+    text-align: center; /* Center text within the overlay */
+}
+
+.quick-add-page-link .link-label {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+/* Delete button styling */
+.delete-qai-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 5; 
+    display: none; /* Hidden by default - JS will toggle or edit-mode class will show */
+    background-color: rgba(231, 76, 60, 0.7); 
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    line-height: 22px; 
+    text-align: center;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.delete-qai-btn:hover {
+    background-color: rgba(192, 57, 43, 0.9); 
+}
+
+/* Show delete button when its parent tile is in a grid that has .edit-mode */
+#quick-add-grid-container.edit-mode .quick-add-item > .delete-qai-btn,
+#quick-add-grid-container.edit-mode .quick-add-page-link > .delete-qai-btn {
+    display: flex; /* Use flex to center content like the X */
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* Style for the Home button specifically */
+[data-qai-id="qai-home-link"] {
+    background-color: #E0E0E0 !important; /* Ensure its specific color is applied */
+    border: 1px solid #BDBDBD; /* Slightly darker border for home button */
+    color: #424242; /* Darker text for home button for contrast */
+}
+
+[data-qai-id="qai-home-link"]:hover {
+    background-color: #D5D5D5 !important;
+}
+
+/* Ensure page number and edit controls are visible */
+#quick-add-page-info {
+    margin-bottom: 10px;
+    text-align: center; 
+}
+
+#quick-add-controls {
+    margin-bottom: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+    #quick-add-grid-container {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+    .quick-add-item .item-title, .quick-add-page-link .link-label {
+        font-size: 0.85em;
+    }
+    .quick-add-item, .quick-add-page-link {
+        min-height: 70px;
+    }
+}
+
+/* Combination Item Modal Styles */
+#combination-item-modal .modal-content {
+    max-width: 600px;
+    width: 100%;
+}
+
+#combination-item-modal .search-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#combination-item-modal .search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    z-index: 2000 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#combination-item-modal .search-results .search-result-item {
+    max-width: 100%;
+    word-wrap: break-word;
+    white-space: normal;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    background: white;
+    transition: background-color 0.2s ease;
+}
+
+#combination-item-modal .search-results .search-result-item:hover {
+    background-color: #e3f2fd !important;
+    color: #1976d2 !important;
+    border-left: 3px solid #1976d2;
+}
+
+#combination-item-modal .search-results .search-result-item.selected {
+    background-color: #1976d2 !important;
+    color: #ffffff !important;
+    font-weight: bold;
+    border-left: 3px solid #0d47a1;
+}
+
+#combination-item-modal .add-component-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+#combination-item-modal .add-component-controls .form-control {
+    width: 100%;
+}
+
+#combination-item-modal .add-component-controls button {
+    align-self: flex-start;
+} 

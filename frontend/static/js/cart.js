@@ -23,6 +23,180 @@ const cartAmountDueSpan = document.getElementById('cart-amount-due');
 const saleCustomerNotesTextarea = document.getElementById('sale-customer-notes');
 const salePoNumberInput = document.getElementById('sale-po-number');
 
+// --- Edit Sale Item Modal Elements ---
+let editSaleItemModal;
+let editSaleItemIdInput; // Hidden input for sale_item_id
+let editSaleItemNameSpan;
+let editSaleItemOriginalPriceSpan; // Displays original unit price
+let editSaleItemQuantityInput;
+let itemDiscountPercentInput;
+let itemDiscountAbsoluteInput;
+let itemFinalPriceSpan; // Displays calculated final UNIT price after discount
+let editSaleItemNotesTextarea;
+let saveEditSaleItemButton;
+let closeEditSaleItemModalButton;
+let currentEditingSaleItemOriginalPrice = 0; // to store the original price for calculations
+
+// Call this function in app.js during DOMContentLoaded if not already initializing cart services
+export function initCartService() {
+    // Initialize existing cart event listeners if any are added here later
+    // For now, primarily for the edit sale item modal
+    editSaleItemModal = document.getElementById('edit-sale-item-modal');
+    editSaleItemIdInput = document.getElementById('edit-sale-item-id');
+    editSaleItemNameSpan = document.getElementById('edit-sale-item-name');
+    editSaleItemOriginalPriceSpan = document.getElementById('edit-sale-item-original-price');
+    editSaleItemQuantityInput = document.getElementById('edit-sale-item-quantity');
+    itemDiscountPercentInput = document.getElementById('edit-sale-item-discount-percent');
+    itemDiscountAbsoluteInput = document.getElementById('edit-sale-item-discount-absolute');
+    itemFinalPriceSpan = document.getElementById('edit-sale-item-final-price');
+    editSaleItemNotesTextarea = document.getElementById('edit-sale-item-notes');
+    saveEditSaleItemButton = document.getElementById('save-edit-sale-item-button');
+    closeEditSaleItemModalButton = document.getElementById('close-edit-sale-item-modal-button');
+
+    if (saveEditSaleItemButton) {
+        saveEditSaleItemButton.addEventListener('click', handleEditSaleItemSave);
+    }
+    if (closeEditSaleItemModalButton) {
+        closeEditSaleItemModalButton.addEventListener('click', closeEditSaleItemModal);
+    }
+    if (itemDiscountPercentInput) {
+        itemDiscountPercentInput.addEventListener('input', () => {
+            if (itemDiscountPercentInput.value) itemDiscountAbsoluteInput.value = '';
+            calculateAndDisplayFinalPrice();
+        });
+    }
+    if (itemDiscountAbsoluteInput) {
+        itemDiscountAbsoluteInput.addEventListener('input', () => {
+            if (itemDiscountAbsoluteInput.value) itemDiscountPercentInput.value = '';
+            calculateAndDisplayFinalPrice();
+        });
+    }
+    if (editSaleItemQuantityInput) {
+        editSaleItemQuantityInput.addEventListener('input', calculateAndDisplayFinalPrice);
+    }
+    
+    if (saleCustomerNotesTextarea) {
+        saleCustomerNotesTextarea.addEventListener('input', debouncedSaveSaleCustomerNotes);
+    }
+    if (salePoNumberInput) {
+        salePoNumberInput.addEventListener('input', debouncedSaveSalePoNumber);
+    }
+}
+
+function calculateAndDisplayFinalPrice() {
+    if (!itemFinalPriceSpan || !editSaleItemQuantityInput) return;
+
+    const quantity = parseFloat(editSaleItemQuantityInput.value) || 0;
+    let unitPrice = currentEditingSaleItemOriginalPrice;
+
+    const discountPercent = parseFloat(itemDiscountPercentInput.value);
+    const discountAbsolute = parseFloat(itemDiscountAbsoluteInput.value);
+
+    if (!isNaN(discountPercent) && discountPercent >= 0) {
+        unitPrice = unitPrice * (1 - discountPercent / 100);
+    } else if (!isNaN(discountAbsolute) && discountAbsolute >= 0) {
+        unitPrice = Math.max(0, unitPrice - discountAbsolute); // Ensure price doesn't go below 0
+    }
+    
+    itemFinalPriceSpan.textContent = unitPrice.toFixed(2); // Display final UNIT price
+    // The total line price will be quantity * unitPrice, handled server-side or on save.
+}
+
+export function openEditSaleItemModal(saleItem) {
+    if (!editSaleItemModal || !saleItem) {
+        showToast("Could not open edit modal. Elements missing or no item data.", "error");
+        console.error("Edit Sale Item Modal or saleItem data not available.", {editSaleItemModal, saleItem});
+        return;
+    }
+
+    editSaleItemIdInput.value = saleItem.id; // This is sale_item.id
+    editSaleItemNameSpan.textContent = saleItem.item.title; // Assuming saleItem has nested item object
+    currentEditingSaleItemOriginalPrice = parseFloat(saleItem.price_at_sale);
+    editSaleItemOriginalPriceSpan.textContent = currentEditingSaleItemOriginalPrice.toFixed(2);
+    editSaleItemQuantityInput.value = saleItem.quantity;
+    editSaleItemNotesTextarea.value = saleItem.notes || '';
+
+    // Reset and populate discounts
+    itemDiscountPercentInput.value = '';
+    itemDiscountAbsoluteInput.value = '';
+    if (saleItem.discount_type === 'Percentage' && saleItem.discount_value != null) {
+        itemDiscountPercentInput.value = saleItem.discount_value;
+    } else if (saleItem.discount_type === 'Absolute' && saleItem.discount_value != null) {
+        itemDiscountAbsoluteInput.value = saleItem.discount_value;
+    }
+    
+    calculateAndDisplayFinalPrice(); // Initial calculation
+    editSaleItemModal.style.display = 'block';
+}
+
+export function closeEditSaleItemModal() {
+    if (editSaleItemModal) {
+        editSaleItemModal.style.display = 'none';
+    }
+}
+
+async function handleEditSaleItemSave() {
+    const saleItemId = editSaleItemIdInput.value;
+    const quantity = parseInt(editSaleItemQuantityInput.value, 10);
+    const notes = editSaleItemNotesTextarea.value.trim();
+    const discountPercent = parseFloat(itemDiscountPercentInput.value);
+    const discountAbsolute = parseFloat(itemDiscountAbsoluteInput.value);
+
+    let discount_type = null;
+    let discount_value = null;
+
+    if (!isNaN(discountPercent) && discountPercent > 0) {
+        discount_type = 'Percentage';
+        discount_value = discountPercent;
+    } else if (!isNaN(discountAbsolute) && discountAbsolute > 0) {
+        discount_type = 'Absolute';
+        discount_value = discountAbsolute;
+    }
+    // If both are zero or empty, they remain null (no discount or discount removed)
+
+    if (isNaN(quantity) || quantity <= 0) {
+        showToast("Quantity must be a positive number.", "error");
+        return;
+    }
+
+    const payload = {
+        quantity: quantity,
+        notes: notes,
+        discount_type: discount_type,
+        discount_value: discount_value,
+        // price_at_sale might be recalculated server-side based on original price and discount,
+        // or you could send the calculated unitPrice here if the backend expects it.
+        // For now, let backend handle price adjustment based on discount.
+    };
+
+    try {
+        // Backend endpoint: PUT /api/sales/items/{sale_item_id}
+        if (!state.currentSale || !state.currentSale.id) {
+            showToast("Error: No active sale ID found to update item.", "error");
+            return;
+        }
+        const updatedSaleItem = await apiCall(`/sales/${state.currentSale.id}/items/${saleItemId}`, 'PUT', payload);
+        if (updatedSaleItem && updatedSaleItem.id) {
+            showToast("Item updated in cart successfully.", "success");
+            closeEditSaleItemModal();
+
+            // Refresh sale state and UI
+            const updatedSale = await apiCall(`/sales/${state.currentSale.id}`);
+            if (updatedSale) {
+                state.currentSale = updatedSale;
+                updateCartDisplay();
+            } else {
+                showToast("Failed to refresh sale details after item update.", "warning");
+            }
+        } else {
+            showToast(updatedSaleItem.error || "Failed to update item in cart. Please try again.", "error");
+        }
+    } catch (error) {
+        console.error("Error updating sale item:", error);
+        showToast("Error updating sale item: " + error.message, "error");
+    }
+}
+
 // Debounce function
 function debounce(func, delay) {
     let timeout;
