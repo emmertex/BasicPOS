@@ -3,10 +3,10 @@ from sqlalchemy.sql import func
 from sqlalchemy import Enum as SQLAlchemyEnum
 
 class Sale(db.Model):
-    __tablename__ = 'Sales'
+    __tablename__ = 'sales'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('Customers.id'), nullable=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=True)
     status = db.Column(SQLAlchemyEnum('Open', 'Quote', 'Invoice', 'Paid', 'Void', name='sale_status_enum'), nullable=False, default='Open')
     
     # Overall discount fields

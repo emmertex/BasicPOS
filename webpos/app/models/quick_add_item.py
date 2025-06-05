@@ -12,7 +12,7 @@ class QuickAddItem(db.Model):
     type = db.Column(db.String(50), nullable=False)  # 'item' or 'page_link'
     label = db.Column(db.String(100), nullable=False)
     
-    item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=True)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=True)
     item = db.relationship('Item', backref=db.backref('quick_add_references', lazy=True))
     
     item_parent_id = db.Column(db.Integer, nullable=True) # Stores parent_id of the item, if applicable

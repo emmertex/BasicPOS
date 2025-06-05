@@ -1,11 +1,11 @@
 from app import db
 
 class SaleItem(db.Model):
-    __tablename__ = 'SaleItems'
+    __tablename__ = 'saleitems'
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    sale_id = db.Column(db.Integer, db.ForeignKey('Sales.id'), nullable=False)
-    item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
     
     # price_at_sale: Stores the item's original unit price when added to the sale (before line-item discount)

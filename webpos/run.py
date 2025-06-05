@@ -6,7 +6,7 @@ if __name__ == '__main__':
     with app.app_context():
         # This is a good place to ensure all tables are created,
         # especially during development. For production, migrations are preferred.
-        db.create_all()
+        # db.create_all()
         
         # You could also add some seed data here if needed for QuickAddItems
         from app.models import QuickAddItem, Item # Import models for seeding

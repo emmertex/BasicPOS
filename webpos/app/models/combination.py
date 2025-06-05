@@ -6,7 +6,7 @@ class CombinationItem(db.Model):
     __tablename__ = 'combination_items'
     id = db.Column(db.Integer, primary_key=True)
     # This item_id links to the base Item entry that represents this combo
-    item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=False, unique=True) 
+    item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False, unique=True) 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -24,7 +24,7 @@ class CombinationItemComponent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     combination_item_id = db.Column(db.Integer, db.ForeignKey('combination_items.id'), nullable=False)
     # This component_item_id links to the Item entry that IS a component of the combo
-    component_item_id = db.Column(db.Integer, db.ForeignKey('Items.id'), nullable=False) 
+    component_item_id = db.Column(db.Integer, db.ForeignKey('items.id'), nullable=False) 
     quantity = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now())
