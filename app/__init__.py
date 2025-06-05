@@ -2,11 +2,13 @@ from flask import Flask, send_from_directory, current_app, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
+from flask_mail import Mail
 from config import Config
 import os
 
 db = SQLAlchemy()
 migrate = Migrate()
+mail = Mail()
 
 def create_app(config_class=Config):
     # app.root_path is the path to the directory where the app package (app/) is located.
@@ -27,6 +29,7 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     migrate.init_app(app, db)
+    mail.init_app(app)
 
     from app.services.quick_add_item_service import QuickAddItemService
 

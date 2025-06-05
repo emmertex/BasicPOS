@@ -361,18 +361,21 @@ class ItemService:
                 db.session.rollback()
                 return None, str(e)
         else:
-            # Non-versioned fields or no change in versioned fields other than stock_quantity (handled above)
-            if 'stock_quantity' in data:
-                 item_to_update.stock_quantity = data['stock_quantity']
-                 db.session.commit()
-                 updated_item_instance = item_to_update
-                 # Image processing will happen after this block
-            else:
-                # No actual data changes that require a commit, but images might still be processed.
-                updated_item_instance = item_to_update 
-            # If only non-versioned fields (excluding stock) changed, this path is taken.
-            # If data was empty, this path is also taken.
-            # If no actual field change happened, updated_item_instance is item_to_update.
+            # Non-versioned fields or no change in versioned fields
+            # Iterate through all data provided and update the item_to_update
+            updated_fields = False
+            for key, value in data.items():
+                if hasattr(item_to_update, key) and getattr(item_to_update, key) != value:
+                    setattr(item_to_update, key, value)
+                    updated_fields = True
+            
+            if updated_fields:
+                db.session.add(item_to_update) # Add to session to mark for update
+                db.session.commit()
+            
+            updated_item_instance = item_to_update
+            # If only non-versioned fields changed, this path is taken.
+            # If data was empty or no actual field change happened, updated_item_instance is item_to_update.
 
         # If updated_item_instance is None here, it means an update path wasn't correctly handled
         # or an early return happened for an error. However, successful paths set it.

@@ -104,27 +104,36 @@ async function handleSubmitPayment(paymentType) {
             showToast("Payment processed successfully!", "success");
             closePaymentModal();
             let finalSaleStatus = 'Unknown'; // For deciding print options
+            let customerEmailForPrint = null; // Variable to hold customer email
 
             if (state.currentSale && state.currentSale.id == saleId) {
                 const updatedSale = await apiCall(`/sales/${saleId}`);
                 if (updatedSale) {
-                    state.currentSale = updatedSale;
+                    state.currentSale = updatedSale; // Update current sale state
                     finalSaleStatus = updatedSale.status;
+                    // Extract customer email
+                    customerEmailForPrint = updatedSale.customer && updatedSale.customer.email ? updatedSale.customer.email : null;
                     updateCartDisplay(); 
                 } else {
+                    // If fetching updatedSale fails, we might not have email.
                     loadSaleIntoCart(saleId); 
                 }
             } else {
-                loadSaleIntoCart(saleId); 
-                // To get the status, we might need to fetch it again if not currentSale
+                // If the processed sale wasn't the current one, fetch its details
                 const saleData = await apiCall(`/sales/${saleId}`);
-                if(saleData) finalSaleStatus = saleData.status;
+                if(saleData) {
+                    finalSaleStatus = saleData.status;
+                    // Extract customer email
+                    customerEmailForPrint = saleData.customer && saleData.customer.email ? saleData.customer.email : null;
+                    // If the sale just paid for was not the one in cart, and should now be, then load it.
+                    // Example: if (state.currentSale?.id !== saleId) { loadSaleIntoCart(saleId, saleData); }
+                }
             }
             
-            loadParkedSales(); // Directly call the imported function
+            loadParkedSales(); // Refresh parked sales list
 
-            // Call the imported openPrintOptionsModal
-            openPrintOptionsModal(saleId, finalSaleStatus);
+            // Call openPrintOptionsModal with customerEmailForPrint
+            openPrintOptionsModal(saleId, finalSaleStatus, customerEmailForPrint);
 
         } else {
             showToast(result.message || "Payment failed. Please try again.", "error");
