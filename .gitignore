@@ -21,3 +21,4 @@ config.py
 *.bmp
 *.tiff
 *.tif
+config.py
