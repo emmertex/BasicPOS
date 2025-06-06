@@ -49,6 +49,7 @@
                 <option value="yes" {% if search_params.stock == 'yes' %}selected{% endif %}>In Stock</option>
                 <option value="no" {% if search_params.stock == 'no' %}selected{% endif %}>Out of Stock</option>
                 <option value="negative" {% if search_params.stock == 'negative' %}selected{% endif %}>Negative Stock</option>
+                <option value="all" {% if search_params.stock == 'all' %}selected{% endif %}>All</option>
             </select>
         </div>
         <div>
@@ -229,7 +230,7 @@
             const currentValue = element.classList.contains('ticked');
             const newValue = !currentValue;
 
-            fetch(`/items/${itemId}/toggle`, {
+            fetch(`/api/items/${itemId}/toggle`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -256,7 +257,7 @@
 
         function updateCategory(itemId, selectElement) {
             const categoryId = selectElement.value;
-            fetch(`/items/${itemId}/category`, {
+            fetch(`/api/items/${itemId}/category`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -280,7 +281,7 @@
         }
 
         function updateStockQuantity(itemId, newQuantity) {
-            fetch(`/items/${itemId}/quantity`, {
+            fetch(`/api/items/${itemId}/quantity`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -304,7 +305,7 @@
         }
 
         function updateLowStockLevel(itemId, newLevel) {
-            fetch(`/items/${itemId}/low_stock_level`, {
+            fetch(`/api/items/${itemId}/low_stock_level`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

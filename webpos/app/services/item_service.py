@@ -314,7 +314,15 @@ class ItemService:
             try:
                 # Create a new version
                 item_to_update.is_current_version = False
-                db.session.add(item_to_update) # Add to session to mark for update
+                # Deactivate and clear other attributes so the historical record does not
+                # appear anywhere it shouldn't.
+                item_to_update.is_active = False
+                item_to_update.show_on_website = False
+                item_to_update.is_stock_tracked = False
+                item_to_update.stock_quantity = 0
+                item_to_update.category_id = None
+
+                db.session.add(item_to_update)  # mark for update
 
                 new_version_data = { 
                     f.name: getattr(item_to_update, f.name) 

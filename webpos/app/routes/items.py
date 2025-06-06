@@ -38,7 +38,8 @@ def item_list_page():
         'limit': limit
     }
 
-    query = Item.query
+    # Always work with the latest/current version of every item
+    query = Item.query.filter(Item.is_current_version == True)
 
     # Text search
     if title:
