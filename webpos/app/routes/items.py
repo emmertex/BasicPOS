@@ -7,8 +7,9 @@ from app.models.photo import Photo # Import Photo model for validation
 import os # Added for path manipulation
 
 bp = Blueprint('items', __name__)
+items_ui_bp = Blueprint('items_ui', __name__)
 
-@bp.route('/list', methods=['GET'])
+@items_ui_bp.route('/stockdt/', methods=['GET'])
 def item_list_page():
     # Search and filter parameters
     title = request.args.get('title', '')
@@ -16,6 +17,7 @@ def item_list_page():
     limit = request.args.get('limit', 20, type=int)
     active = request.args.get('active', 'yes')
     stock = request.args.get('stock', 'yes')
+    low_stock_filter = request.args.get('low_stock_filter', 'all')
     show_on_website = request.args.get('show_on_website', 'all')
     stock_tracked = request.args.get('stock_tracked', 'all')
     order_by = request.args.get('order_by', 'id_desc')
@@ -29,6 +31,7 @@ def item_list_page():
         'sku': sku,
         'active': active,
         'stock': stock,
+        'low_stock_filter': low_stock_filter,
         'show_on_website': show_on_website,
         'stock_tracked': stock_tracked,
         'order_by': order_by,
@@ -55,6 +58,11 @@ def item_list_page():
         query = query.filter(Item.stock_quantity <= 0)
     elif stock == 'negative':
         query = query.filter(Item.stock_quantity < 0)
+
+    if low_stock_filter == 'managed':
+        query = query.filter(Item.low_stock_level >= 0)
+    elif low_stock_filter == 'low_stock':
+        query = query.filter(Item.low_stock_level >= 0, Item.stock_quantity < Item.low_stock_level)
 
     if show_on_website == 'yes':
         query = query.filter(Item.show_on_website == True)
@@ -110,6 +118,7 @@ def item_to_dict(item):
         'is_current_version': item.is_current_version,
         'sku': item.sku,
         'stock_quantity': item.stock_quantity,
+        'low_stock_level': item.low_stock_level,
         'is_stock_tracked': item.is_stock_tracked,
         'title': item.title,
         'description': item.description,
@@ -171,6 +180,8 @@ def create_item_route():
         raw_stock_quantity = form_data.get('stock_quantity')
         item_data['stock_quantity'] = int(raw_stock_quantity) if raw_stock_quantity is not None and raw_stock_quantity.strip() != '' else 0
         
+        item_data['low_stock_level'] = int(form_data.get('low_stock_level', -1))
+
         # Boolean fields now use the module-level to_bool
         item_data['is_stock_tracked'] = to_bool(form_data.get('is_stock_tracked', True))
         item_data['description'] = form_data.get('description')
@@ -263,6 +274,9 @@ def update_item_route(item_id):
         if form_data.get('stock_quantity') is not None:
             sq = form_data['stock_quantity']
             item_data['stock_quantity'] = int(sq) if sq.strip() != '' else 0
+        
+        if form_data.get('low_stock_level') is not None:
+            item_data['low_stock_level'] = int(form_data.get('low_stock_level'))
 
         if 'is_stock_tracked' in form_data:
             item_data['is_stock_tracked'] = to_bool(form_data['is_stock_tracked'])
@@ -362,6 +376,30 @@ def update_item_quantity(item_id):
         from app import db
         db.session.commit()
         return jsonify({"success": True, "new_quantity": quantity})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/<int:item_id>/low_stock_level', methods=['PUT'])
+def update_item_low_stock_level(item_id):
+    data = request.get_json()
+    if data is None or 'low_stock_level' not in data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+
+    try:
+        low_stock_level = int(data.get('low_stock_level'))
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid low_stock_level format"}), 400
+
+    item = Item.query.get(item_id)
+    if not item:
+        return jsonify({"success": False, "error": "Item not found"}), 404
+    
+    try:
+        item.low_stock_level = low_stock_level
+        from app import db
+        db.session.commit()
+        return jsonify({"success": True, "new_low_stock_level": low_stock_level})
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500

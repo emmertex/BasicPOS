@@ -136,8 +136,9 @@ def create_app(config_class=Config):
     from . import models
 
     # Register blueprints here
-    from app.routes.items import bp as items_bp
-    app.register_blueprint(items_bp, url_prefix='/items')
+    from app.routes.items import bp as items_bp, items_ui_bp
+    app.register_blueprint(items_bp, url_prefix='/api/items')
+    app.register_blueprint(items_ui_bp)
 
     from app.routes.customers import bp as customers_bp
     app.register_blueprint(customers_bp, url_prefix='/api/customers')

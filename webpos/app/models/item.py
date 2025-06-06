@@ -8,6 +8,7 @@ class Item(db.Model):
     is_current_version = db.Column(db.Boolean, nullable=False, default=True)
     sku = db.Column(db.String(255), unique=True, nullable=False)
     stock_quantity = db.Column(db.Integer, nullable=False, default=0)
+    low_stock_level = db.Column(db.Integer, nullable=False, default=-1)
     is_stock_tracked = db.Column(db.Boolean, nullable=False, default=True)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, nullable=True)

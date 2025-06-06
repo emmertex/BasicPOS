@@ -22,7 +22,7 @@
 <body>
     <h1>Item Management</h1>
 
-    <form action="/items/list" method="get" class="search-form">
+    <form action="/stockdt/" method="get" class="search-form">
         <div>
             <label for="title">Title</label>
             <input type="text" name="title" id="title" value="{{ search_params.title }}">
@@ -49,6 +49,14 @@
                 <option value="yes" {% if search_params.stock == 'yes' %}selected{% endif %}>In Stock</option>
                 <option value="no" {% if search_params.stock == 'no' %}selected{% endif %}>Out of Stock</option>
                 <option value="negative" {% if search_params.stock == 'negative' %}selected{% endif %}>Negative Stock</option>
+            </select>
+        </div>
+        <div>
+            <label for="low_stock_filter">Low Stock Filter</label>
+            <select name="low_stock_filter" id="low_stock_filter">
+                <option value="all" {% if search_params.low_stock_filter == 'all' %}selected{% endif %}>All</option>
+                <option value="managed" {% if search_params.low_stock_filter == 'managed' %}selected{% endif %}>Managed</option>
+                <option value="low_stock" {% if search_params.low_stock_filter == 'low_stock' %}selected{% endif %}>Low Stock</option>
             </select>
         </div>
         <div>
@@ -91,6 +99,7 @@
                 <th>SKU</th>
                 <th>Price</th>
                 <th>Stock</th>
+                <th>Low Stock Level</th>
                 <th>Active</th>
                 <th>On Website</th>
                 <th>Tracked</th>
@@ -110,6 +119,7 @@
                 <td>{{ item.sku }}</td>
                 <td>{{ "%.2f"|format(item.price) }}</td>
                 <td><input type="number" value="{{ item.stock_quantity }}" onchange="updateStockQuantity({{ item.id }}, this.value)" class="stock-input"></td>
+                <td><input type="number" value="{{ item.low_stock_level }}" onchange="updateLowStockLevel({{ item.id }}, this.value)" class="stock-input"></td>
                 <td>
                     <span class="icon {% if item.is_active %}ticked{% else %}unticked{% endif %}" onclick="toggleProperty({{ item.id }}, 'is_active', this)">
                         &#10003;
@@ -165,6 +175,10 @@
             <div>
                 <label for="item-stock-quantity">Stock Quantity:</label>
                 <input type="number" id="item-stock-quantity" step="1" min="0">
+            </div>
+            <div>
+                <label for="item-low-stock-level">Low Stock Level:</label>
+                <input type="number" id="item-low-stock-level" step="1" value="-1">
             </div>
             <div>
                 <label for="item-description">Description:</label>
@@ -286,6 +300,30 @@
             .catch(error => {
                 console.error('Error:', error);
                 alert('An error occurred while updating the quantity.');
+            });
+        }
+
+        function updateLowStockLevel(itemId, newLevel) {
+            fetch(`/items/${itemId}/low_stock_level`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    low_stock_level: newLevel
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Item ${itemId} low stock level updated to ${data.new_low_stock_level}`);
+                } else {
+                    alert('Failed to update low stock level: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the low stock level.');
             });
         }
     </script>

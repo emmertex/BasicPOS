@@ -23,6 +23,7 @@ let itemTitleInput;
 let itemSkuInput;
 let itemPriceInput;
 let itemStockQuantityInput;
+let itemLowStockLevelInput;
 let itemDescriptionInput;
 let itemParentIdInput;
 let itemIsStockTrackedCheckbox;
@@ -67,6 +68,7 @@ export function initItemService() {
     itemSkuInput = document.getElementById('item-sku');
     itemPriceInput = document.getElementById('item-price');
     itemStockQuantityInput = document.getElementById('item-stock-quantity');
+    itemLowStockLevelInput = document.getElementById('item-low-stock-level');
     itemDescriptionInput = document.getElementById('item-description');
     itemParentIdInput = document.getElementById('item-parent-id');
     itemIsStockTrackedCheckbox = document.getElementById('item-is-stock-tracked');
@@ -143,7 +145,7 @@ export function initItemService() {
 
 // --- Item Search --- 
 export async function preloadItems() {
-    const allItems = await apiCall('/items/');
+    const allItems = await apiCall('/items');
     if (allItems) {
         state.itemsCache = allItems;
         console.log("Items preloaded for search:", state.itemsCache.length);
@@ -459,6 +461,7 @@ export function clearItemModalForm() {
     itemSkuInput.value = '';
     itemPriceInput.value = '';
     itemStockQuantityInput.value = '1';
+    itemLowStockLevelInput.value = '-1';
     itemDescriptionInput.value = '';
     itemParentIdInput.value = '-1';
     itemIsStockTrackedCheckbox.checked = true;
@@ -502,6 +505,7 @@ export async function openEditItemForm(itemId) {
         itemSkuInput.value = itemData.sku;
         itemPriceInput.value = itemData.price ? itemData.price.toFixed(2) : '';
         itemStockQuantityInput.value = itemData.stock_quantity;
+        itemLowStockLevelInput.value = itemData.low_stock_level;
         itemDescriptionInput.value = itemData.description || '';
         itemParentIdInput.value = itemData.parent_id;
         itemIsStockTrackedCheckbox.checked = itemData.is_stock_tracked;
@@ -575,6 +579,7 @@ export async function handleSaveItem(addToCartAfterSave = false) {
     const sku = itemSkuInput.value.trim();
     const priceText = itemPriceInput.value.trim();
     const stockQuantity = parseInt(itemStockQuantityInput.value) || 0;
+    const lowStockLevel = parseInt(itemLowStockLevelInput.value) || -1;
     const description = itemDescriptionInput.value.trim();
     const parentId = parseInt(itemParentIdInput.value) || -1;
     const isStockTracked = itemIsStockTrackedCheckbox.checked;
@@ -596,6 +601,7 @@ export async function handleSaveItem(addToCartAfterSave = false) {
     formData.append('sku', sku);
     formData.append('price', price.toString());
     formData.append('stock_quantity', stockQuantity.toString());
+    formData.append('low_stock_level', lowStockLevel.toString());
     formData.append('description', description);
     formData.append('parent_id', parentId.toString());
     formData.append('is_stock_tracked', isStockTracked ? 'true' : 'false');
