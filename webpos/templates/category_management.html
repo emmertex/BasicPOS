@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Category Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            background-color: #f4f6f9; /* A light grey background */
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 30px auto; /* Vertical margin and auto horizontal margin for centering */
+            padding: 20px 30px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .category-list ul {
+            list-style-type: none;
+            padding-left: 20px;
+        }
+        .category-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f9f9f9;
+        }
+        .add-category-form {
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-top: 20px;
+            background-color: #fdfdfd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Category Management</h1>
+
+        <div class="category-list">
+            {% macro render_category_tree(categories, all_categories, level=0) %}
+                <ul>
+                    {% for category in categories %}
+                        <li class="category-item" style="margin-left: {{ level * 25 }}px;">
+                            <span class="category-name">{{ category.name }}</span>
+                            <div class="category-actions">
+                                <select onchange="updateParent({{ category.id }}, this.value)" title="Change Parent">
+                                    <option value="">-- No Parent --</option>
+                                    {% for parent_option in all_categories %}
+                                        {% if parent_option.id != category.id %}
+                                            <option value="{{ parent_option.id }}" {% if category.parent_id == parent_option.id %}selected{% endif %}>
+                                                {{ parent_option.name }}
+                                            </option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-danger" onclick='openDeleteModal({{ category.id }}, {{ category.name | tojson }})'>Delete</button>
+                            </div>
+                        </li>
+                        {% if category.children_list %}
+                            {{ render_category_tree(category.children_list, all_categories, level + 1) }}
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            {% endmacro %}
+            {{ render_category_tree(categories_tree, all_categories) }}
+        </div>
+
+        <button id="show-add-form-btn" class="btn btn-primary">Add New Category</button>
+
+        <div id="add-category-container" style="display:none;" class="add-category-form">
+            <h3>Add New Category</h3>
+            <form action="{{ url_for('categories.add_category') }}" method="POST">
+                <div class="form-group">
+                    <label for="category-name">Category Name</label>
+                    <input type="text" id="category-name" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="parent-id">Parent Category (Optional)</label>
+                    <select id="parent-id" name="parent_id" class="form-control">
+                        <option value="">-- No Parent --</option>
+                        {% for category in all_categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success">Save Category</button>
+            </form>
+        </div>
+
+        <!-- Delete Category Modal -->
+        <div id="delete-category-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-button" onclick="closeDeleteModal()">&times;</span>
+                <h2>Delete Category</h2>
+                <p>You are about to delete the category: <strong id="delete-category-name"></strong>.</p>
+                <p>Where should items currently in this category be moved?</p>
+                <input type="hidden" id="category-id-to-delete">
+                <div class="form-group">
+                    <label for="move-to-category-id">Move items to:</label>
+                    <select id="move-to-category-id" class="form-control">
+                         <option value="">-- No Category --</option>
+                        {% for category in all_categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button class="btn btn-danger" onclick="confirmDelete()">Confirm Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('show-add-form-btn').addEventListener('click', () => {
+            const container = document.getElementById('add-category-container');
+            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        });
+
+        function openDeleteModal(categoryId, categoryName) {
+            document.getElementById('category-id-to-delete').value = categoryId;
+            document.getElementById('delete-category-name').textContent = categoryName;
+            
+            // Prevent the category to be deleted from being a target for moved items
+            const moveToSelect = document.getElementById('move-to-category-id');
+            Array.from(moveToSelect.options).forEach(option => {
+                option.style.display = option.value == categoryId ? 'none' : 'block';
+            });
+            
+            document.getElementById('delete-category-modal').style.display = 'block';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-category-modal').style.display = 'none';
+        }
+
+        function updateParent(categoryId, parentId) {
+            fetch(`/categories/update_parent/${categoryId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parent_id: parentId ? parseInt(parentId) : null })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => alert('An error occurred.'));
+        }
+
+        function confirmDelete() {
+            const categoryId = document.getElementById('category-id-to-delete').value;
+            const targetCategoryId = document.getElementById('move-to-category-id').value;
+            
+            fetch(`/categories/delete/${categoryId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_category_id: targetCategoryId ? parseInt(targetCategoryId) : null })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => alert('An error occurred.'));
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('delete-category-modal');
+            if (event.target == modal) {
+                closeDeleteModal();
+            }
+        }
+    </script>
+</body>
+</html> 

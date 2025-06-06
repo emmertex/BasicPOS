@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item List</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: sans-serif; }
+        .search-form { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .search-form div { display: flex; flex-direction: column; }
+        .item-table { width: 100%; border-collapse: collapse; }
+        .item-table th, .item-table td { border: 1px solid #ddd; padding: 8px; }
+        .item-table th { background-color: #f2f2f2; }
+        .icon { cursor: pointer; font-size: 1.5em; }
+        .icon.ticked { color: darkgreen; }
+        .icon.unticked { color: lightgrey; }
+        .item-photo { max-width: 50px; max-height: 50px; }
+        .stock-input { width: 60px; text-align: right; }
+    </style>
+</head>
+<body>
+    <h1>Item Management</h1>
+
+    <form action="/items/list" method="get" class="search-form">
+        <div>
+            <label for="title">Title</label>
+            <input type="text" name="title" id="title" value="{{ search_params.title }}">
+        </div>
+        <div>
+            <label for="sku">SKU</label>
+            <input type="text" name="sku" id="sku" value="{{ search_params.sku }}">
+        </div>
+        <div>
+            <label for="limit">Limit</label>
+            <input type="number" name="limit" id="limit" value="{{ search_params.limit }}">
+        </div>
+        <div>
+            <label for="active">Active</label>
+            <select name="active" id="active">
+                <option value="yes" {% if search_params.active == 'yes' %}selected{% endif %}>Yes</option>
+                <option value="no" {% if search_params.active == 'no' %}selected{% endif %}>No</option>
+                <option value="all" {% if search_params.active == 'all' %}selected{% endif %}>All</option>
+            </select>
+        </div>
+        <div>
+            <label for="stock">Stock</label>
+            <select name="stock" id="stock">
+                <option value="yes" {% if search_params.stock == 'yes' %}selected{% endif %}>In Stock</option>
+                <option value="no" {% if search_params.stock == 'no' %}selected{% endif %}>Out of Stock</option>
+                <option value="negative" {% if search_params.stock == 'negative' %}selected{% endif %}>Negative Stock</option>
+            </select>
+        </div>
+        <div>
+            <label for="show_on_website">Show on Website</label>
+            <select name="show_on_website" id="show_on_website">
+                <option value="yes" {% if search_params.show_on_website == 'yes' %}selected{% endif %}>Yes</option>
+                <option value="no" {% if search_params.show_on_website == 'no' %}selected{% endif %}>No</option>
+                <option value="all" {% if search_params.show_on_website == 'all' %}selected{% endif %}>All</option>
+            </select>
+        </div>
+        <div>
+            <label for="stock_tracked">Stock Tracked</label>
+            <select name="stock_tracked" id="stock_tracked">
+                <option value="yes" {% if search_params.stock_tracked == 'yes' %}selected{% endif %}>Yes</option>
+                <option value="no" {% if search_params.stock_tracked == 'no' %}selected{% endif %}>No</option>
+                <option value="all" {% if search_params.stock_tracked == 'all' %}selected{% endif %}>All</option>
+            </select>
+        </div>
+        <div>
+            <label for="order_by">Order By</label>
+            <select name="order_by" id="order_by">
+                <option value="title_asc" {% if search_params.order_by == 'title_asc' %}selected{% endif %}>Title Asc</option>
+                <option value="title_desc" {% if search_params.order_by == 'title_desc' %}selected{% endif %}>Title Desc</option>
+                <option value="sku_asc" {% if search_params.order_by == 'sku_asc' %}selected{% endif %}>SKU Asc</option>
+                <option value="sku_desc" {% if search_params.order_by == 'sku_desc' %}selected{% endif %}>SKU Desc</option>
+                <option value="stock_asc" {% if search_params.order_by == 'stock_asc' %}selected{% endif %}>Stock Asc</option>
+                <option value="stock_desc" {% if search_params.order_by == 'stock_desc' %}selected{% endif %}>Stock Desc</option>
+                <option value="id_asc" {% if search_params.order_by == 'id_asc' %}selected{% endif %}>ID Asc</option>
+                <option value="id_desc" {% if search_params.order_by == 'id_desc' %}selected{% endif %}>ID Desc</option>
+            </select>
+        </div>
+        <button type="submit">Search</button>
+    </form>
+
+    <table class="item-table">
+        <thead>
+            <tr>
+                <th>Photo</th>
+                <th>Title</th>
+                <th>SKU</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Active</th>
+                <th>On Website</th>
+                <th>Tracked</th>
+                <th>Category</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr data-item-id="{{ item.id }}">
+                <td>
+                    {% if item.photos and item.photos[0] %}
+                    <img src="{{ item.photos[0].small_url }}" alt="{{ item.title }}" class="item-photo">
+                    {% endif %}
+                </td>
+                <td>{{ item.title }}</td>
+                <td>{{ item.sku }}</td>
+                <td>{{ "%.2f"|format(item.price) }}</td>
+                <td><input type="number" value="{{ item.stock_quantity }}" onchange="updateStockQuantity({{ item.id }}, this.value)" class="stock-input"></td>
+                <td>
+                    <span class="icon {% if item.is_active %}ticked{% else %}unticked{% endif %}" onclick="toggleProperty({{ item.id }}, 'is_active', this)">
+                        &#10003;
+                    </span>
+                </td>
+                <td>
+                    <span class="icon {% if item.show_on_website %}ticked{% else %}unticked{% endif %}" onclick="toggleProperty({{ item.id }}, 'show_on_website', this)">
+                        &#10003;
+                    </span>
+                </td>
+                <td>
+                    <span class="icon {% if item.is_stock_tracked %}ticked{% else %}unticked{% endif %}" onclick="toggleProperty({{ item.id }}, 'is_stock_tracked', this)">
+                        &#10003;
+                    </span>
+                </td>
+                <td>
+                    <select onchange="updateCategory({{ item.id }}, this)">
+                        <option value="">None</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}" {% if item.category_id == category.id %}selected{% endif %}>
+                            {{ category.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <button onclick="openEditItemForm({{ item.id }})">Edit</button>
+                    <button onclick="window.open('/print/label/{{ item.id }}', '_blank')">Print Label</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Add/Edit Item Modal -->
+    <div id="add-edit-item-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-add-edit-item-modal">&times;</span>
+            <h2 id="item-modal-title">Add New Item</h2>
+            <input type="hidden" id="edit-item-id">
+            <div>
+                <label for="item-title">Title:</label>
+                <input type="text" id="item-title" required>
+            </div>
+            <div>
+                <label for="item-sku">SKU:</label>
+                <input type="text" id="item-sku" required>
+            </div>
+            <div>
+                <label for="item-price">Price:</label>
+                <input type="number" id="item-price" step="0.01" min="0" required>
+            </div>
+            <div>
+                <label for="item-stock-quantity">Stock Quantity:</label>
+                <input type="number" id="item-stock-quantity" step="1" min="0">
+            </div>
+            <div>
+                <label for="item-description">Description:</label>
+                <textarea id="item-description" rows="3"></textarea>
+            </div>
+            <div>
+                <label for="item-parent-id">Parent ID (-1: Standalone, -2: Parent, or ID of parent):</label>
+                <input type="number" id="item-parent-id" step="1" value="-1"> 
+            </div>
+            <div>
+                <input type="checkbox" id="item-is-stock-tracked" checked>
+                <label for="item-is-stock-tracked">Track Stock?</label>
+            </div>
+            <div>
+                <input type="checkbox" id="item-show-on-website">
+                <label for="item-show-on-website">Show on Website?</label>
+            </div>
+            <div>
+                <input type="checkbox" id="item-is-active" checked>
+                <label for="item-is-active">Is Active?</label>
+            </div>
+
+            <div id="item-images-display-container" style="margin-top: 15px;">
+                <h3>Current Images</h3>
+                <div id="item-images-list" class="item-images-grid">
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;" class="drop-zone-container"> 
+                <label for="item-images-upload">Upload New Images (PNG, JPG, GIF):</label>
+                <div id="item-image-drop-zone" class="drop-zone">
+                    <p>Drag & Drop files here or click to Browse</p>
+                    <input type="file" id="item-images-upload" name="images" multiple accept="image/png, image/jpeg, image/gif" style="display: none;">
+                </div>
+            </div>
+
+            <button id="submit-item-button" class="btn btn-success" style="margin-top: 20px;">Save Item</button>
+            <button id="submit-item-and-add-to-cart-button" class="btn btn-primary" style="margin-top: 20px; margin-left: 10px;">Save & Add to Cart</button>
+            <button id="manage-variants-button" class="btn btn-info" style="display: none; margin-top: 10px;">Manage Variants</button>
+        </div>
+    </div>
+    
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <script>
+        function toggleProperty(itemId, propertyName, element) {
+            const currentValue = element.classList.contains('ticked');
+            const newValue = !currentValue;
+
+            fetch(`/items/${itemId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    property: propertyName,
+                    value: newValue
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    element.classList.toggle('ticked');
+                    element.classList.toggle('unticked');
+                } else {
+                    alert('Failed to update item: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred.');
+            });
+        }
+
+        function updateCategory(itemId, selectElement) {
+            const categoryId = selectElement.value;
+            fetch(`/items/${itemId}/category`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    category_id: categoryId ? parseInt(categoryId) : null
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // You can add a success message here if you use a toast notification system
+                } else {
+                    alert('Failed to update category: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the category.');
+            });
+        }
+
+        function updateStockQuantity(itemId, newQuantity) {
+            fetch(`/items/${itemId}/quantity`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    quantity: newQuantity
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`Item ${itemId} quantity updated to ${data.new_quantity}`);
+                } else {
+                    alert('Failed to update quantity: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the quantity.');
+            });
+        }
+    </script>
+    <script type="module">
+        import { initItemService, openEditItemForm } from '/static/js/itemService.js';
+        
+        // Make openEditItemForm globally available
+        window.openEditItemForm = openEditItemForm;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initItemService();
+        });
+    </script>
+
+</body>
+</html> 

@@ -137,7 +137,7 @@ def create_app(config_class=Config):
 
     # Register blueprints here
     from app.routes.items import bp as items_bp
-    app.register_blueprint(items_bp, url_prefix='/api/items')
+    app.register_blueprint(items_bp, url_prefix='/items')
 
     from app.routes.customers import bp as customers_bp
     app.register_blueprint(customers_bp, url_prefix='/api/customers')
@@ -157,6 +157,14 @@ def create_app(config_class=Config):
     # Register Combination Items blueprint
     from app.routes.combination_items import combination_items_bp
     app.register_blueprint(combination_items_bp, url_prefix='/api/combination-items')
+
+    # Register Category Management blueprint
+    from app.routes.categories import bp as categories_bp
+    app.register_blueprint(categories_bp, url_prefix='/categories')
+
+    # Register Admin blueprint
+    from app.routes.admin import bp as admin_bp
+    app.register_blueprint(admin_bp)
 
     @app.route('/')
     def serve_index():

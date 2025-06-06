@@ -74,16 +74,17 @@ def sale_to_dict(sale):
     total_line_item_discounts_calc = Decimal(total_line_item_discounts_calc).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     overall_discount_amount_applied_calc = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
     net_subtotal_before_tax_calc = subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc
     net_subtotal_before_tax_calc = net_subtotal_before_tax_calc.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     gst_rate_percentage = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10'))
     gst_amount_calc = Decimal('0.00')
     if net_subtotal_before_tax_calc > 0 and gst_rate_percentage > 0:
-        gst_amount_calc = (net_subtotal_before_tax_calc * (gst_rate_percentage / Decimal('100'))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        # Since prices are GST inclusive, we need to calculate GST portion by dividing by (1 + GST rate)
+        gst_divisor = Decimal('1') + (gst_rate_percentage / Decimal('100'))
+        gst_amount_calc = (net_subtotal_before_tax_calc - (net_subtotal_before_tax_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-    final_grand_total_calc = net_subtotal_before_tax_calc + gst_amount_calc
+    final_grand_total_calc = net_subtotal_before_tax_calc
     
     amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
     amount_paid_calc = Decimal(amount_paid_calc).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

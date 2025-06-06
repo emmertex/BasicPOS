@@ -1,11 +1,98 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, render_template
 from app.services.item_service import ItemService
 from app.services.image_service import ImageService # Import ImageService
 from app.models.item import Item # Import Item to assist with serialization if needed
+from app.models.category import Category # Import Category model
 from app.models.photo import Photo # Import Photo model for validation
 import os # Added for path manipulation
 
 bp = Blueprint('items', __name__)
+
+@bp.route('/list', methods=['GET'])
+def item_list_page():
+    # Search and filter parameters
+    title = request.args.get('title', '')
+    sku = request.args.get('sku', '')
+    limit = request.args.get('limit', 20, type=int)
+    active = request.args.get('active', 'yes')
+    stock = request.args.get('stock', 'yes')
+    show_on_website = request.args.get('show_on_website', 'all')
+    stock_tracked = request.args.get('stock_tracked', 'all')
+    order_by = request.args.get('order_by', 'id_desc')
+
+    # Get all categories for the dropdown
+    categories = Category.query.order_by(Category.name).all()
+
+    # Build filters dictionary for the template
+    search_params = {
+        'title': title,
+        'sku': sku,
+        'active': active,
+        'stock': stock,
+        'show_on_website': show_on_website,
+        'stock_tracked': stock_tracked,
+        'order_by': order_by,
+        'limit': limit
+    }
+
+    query = Item.query
+
+    # Text search
+    if title:
+        query = query.filter(Item.title.ilike(f'%{title}%'))
+    if sku:
+        query = query.filter(Item.sku.ilike(f'%{sku}%'))
+
+    # Dropdown filters
+    if active == 'yes':
+        query = query.filter(Item.is_active == True)
+    elif active == 'no':
+        query = query.filter(Item.is_active == False)
+
+    if stock == 'yes':
+        query = query.filter(Item.stock_quantity > 0)
+    elif stock == 'no':
+        query = query.filter(Item.stock_quantity <= 0)
+    elif stock == 'negative':
+        query = query.filter(Item.stock_quantity < 0)
+
+    if show_on_website == 'yes':
+        query = query.filter(Item.show_on_website == True)
+    elif show_on_website == 'no':
+        query = query.filter(Item.show_on_website == False)
+
+    if stock_tracked == 'yes':
+        query = query.filter(Item.is_stock_tracked == True)
+    elif stock_tracked == 'no':
+        query = query.filter(Item.is_stock_tracked == False)
+
+    # Order by
+    order_map = {
+        'title_asc': Item.title.asc(),
+        'title_desc': Item.title.desc(),
+        'sku_asc': Item.sku.asc(),
+        'sku_desc': Item.sku.desc(),
+        'stock_asc': Item.stock_quantity.asc(),
+        'stock_desc': Item.stock_quantity.desc(),
+        'id_asc': Item.id.asc(),
+        'id_desc': Item.id.desc()
+    }
+    if order_by in order_map:
+        query = query.order_by(order_map[order_by])
+
+    # Limit
+    if limit > 0:
+        query = query.limit(limit)
+
+    items = query.all()
+    
+    # We will need to convert items to dicts for the template
+    items_dicts = [item_to_dict(item) for item in items]
+
+    return render_template('item_list.html', 
+                           items=items_dicts, 
+                           categories=categories,
+                           search_params=search_params)
 
 # Helper function for boolean conversion
 def to_bool(value):
@@ -29,6 +116,7 @@ def item_to_dict(item):
         'price': float(item.price) if item.price is not None else None, # Ensure Decimal is serialized to float
         'show_on_website': item.show_on_website,
         'is_active': item.is_active,
+        'category_id': item.category_id,
         'photos': [] # Initialize photos list
     }
 
@@ -219,6 +307,94 @@ def delete_item_route(item_id):
     if not success: # Should be caught by error generally
         return jsonify({"error": "Failed to delete item"}), 500
     return jsonify({"message": "Item marked as inactive"}), 200
+
+@bp.route('/<int:item_id>/toggle', methods=['PUT'])
+def toggle_item_property(item_id):
+    data = request.get_json()
+    if not data or 'property' not in data or 'value' not in data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+
+    prop_name = data['property']
+    prop_value = data['value']
+
+    # Basic validation
+    allowed_properties = ['is_active', 'show_on_website', 'is_stock_tracked']
+    if prop_name not in allowed_properties:
+        return jsonify({"success": False, "error": "Invalid property"}), 400
+
+    if not isinstance(prop_value, bool):
+        return jsonify({"success": False, "error": "Invalid value"}), 400
+
+    # Assume an update method in ItemService
+    # success, error = ItemService.update_item_property(item_id, prop_name, prop_value)
+    
+    # For now, let's implement the logic directly
+    item = Item.query.get(item_id)
+    if not item:
+        return jsonify({"success": False, "error": "Item not found"}), 404
+    
+    try:
+        setattr(item, prop_name, prop_value)
+        from app import db
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/<int:item_id>/quantity', methods=['PUT'])
+def update_item_quantity(item_id):
+    data = request.get_json()
+    if data is None or 'quantity' not in data:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+
+    try:
+        quantity = int(data.get('quantity'))
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "Invalid quantity format"}), 400
+
+    item = Item.query.get(item_id)
+    if not item:
+        return jsonify({"success": False, "error": "Item not found"}), 404
+    
+    try:
+        item.stock_quantity = quantity
+        from app import db
+        db.session.commit()
+        return jsonify({"success": True, "new_quantity": quantity})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route('/<int:item_id>/category', methods=['PUT'])
+def update_item_category(item_id):
+    data = request.get_json()
+    if data is None:
+        return jsonify({"success": False, "error": "Invalid request"}), 400
+
+    category_id = data.get('category_id')
+
+    # Allow setting category to null
+    if category_id is not None:
+        if not isinstance(category_id, int):
+            return jsonify({"success": False, "error": "Invalid category_id"}), 400
+        # Optional: Check if category exists
+        if not Category.query.get(category_id):
+            return jsonify({"success": False, "error": "Category not found"}), 404
+
+
+    item = Item.query.get(item_id)
+    if not item:
+        return jsonify({"success": False, "error": "Item not found"}), 404
+    
+    try:
+        item.category_id = category_id
+        from app import db
+        db.session.commit()
+        return jsonify({"success": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @bp.route('/<int:item_id>/photos/<int:photo_id>', methods=['DELETE'])
 def delete_item_photo_route(item_id, photo_id):
