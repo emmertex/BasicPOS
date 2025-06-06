@@ -284,55 +284,57 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize sections
     leftPanelTitles.forEach(title => {
-        const section = title.nextElementSibling;
-        if (section) {
-            // Set initial state - Sales History section should be visible by default
-            const isSalesHistory = title.textContent.includes('Find Sales');
-            const isCurrentlyVisible = isSalesHistory ? true : !section.classList.contains('collapsed-section');
-            
-            // Update classes and display
-            if (isCurrentlyVisible) {
-                section.classList.remove('collapsed-section');
-                section.classList.add('expanded-section');
-                section.style.display = 'block';
-            } else {
-                section.classList.add('collapsed-section');
-                section.classList.remove('expanded-section');
-                section.style.display = 'none';
-            }
-            
-            section.setAttribute('data-expanded', isCurrentlyVisible.toString());
-            
-            // Add expand icon if it doesn't exist
-            if (!title.querySelector('.expand-icon')) {
-                const expandIcon = document.createElement('span');
-                expandIcon.className = 'expand-icon';
-                expandIcon.textContent = isCurrentlyVisible ? '▲' : '▼';
-                title.insertBefore(expandIcon, title.firstChild);
-            }
+        const parentSection = title.parentElement; // .left-panel-section container
+        const content = title.nextElementSibling;  // .left-panel-section-content div
+
+        if (!parentSection || !content) return;
+
+        // Determine initial visibility. Make "Find Sales" visible by default.
+        const isCurrentlyVisible = true; // Start with all sections expanded
+
+        // Apply classes to the SECTION (not the content) so flex behaviour works
+        parentSection.classList.toggle('collapsed-section', !isCurrentlyVisible);
+        parentSection.classList.toggle('expanded-section', isCurrentlyVisible);
+        parentSection.classList.toggle('collapsed', !isCurrentlyVisible);
+        parentSection.classList.toggle('expanded', isCurrentlyVisible);
+
+        // Show / hide content
+        content.style.display = isCurrentlyVisible ? 'block' : 'none';
+
+        // Store state
+        parentSection.setAttribute('data-expanded', isCurrentlyVisible.toString());
+
+        // Insert the expand / collapse icon if it isn't there yet
+        if (!title.querySelector('.expand-icon')) {
+            const expandIcon = document.createElement('span');
+            expandIcon.className = 'expand-icon';
+            expandIcon.textContent = isCurrentlyVisible ? '▲' : '▼';
+            title.insertBefore(expandIcon, title.firstChild);
         }
     });
     
     // Add click handlers
     leftPanelTitles.forEach(title => {
         title.addEventListener('click', () => {
-            const targetSection = title.nextElementSibling;
-            const isExpanded = targetSection.getAttribute('data-expanded') === 'true';
-            
-            // Toggle the clicked section
-            if (isExpanded) {
-                targetSection.classList.add('collapsed-section');
-                targetSection.classList.remove('expanded-section');
-                targetSection.style.display = 'none';
-            } else {
-                targetSection.classList.remove('collapsed-section');
-                targetSection.classList.add('expanded-section');
-                targetSection.style.display = 'block';
-            }
-            
-            targetSection.setAttribute('data-expanded', (!isExpanded).toString());
-            
-            // Update the visual indicator
+            const parentSection = title.parentElement;
+            const content = title.nextElementSibling;
+            if (!parentSection || !content) return;
+
+            const isExpanded = parentSection.getAttribute('data-expanded') === 'true';
+
+            // Toggle classes on the SECTION
+            parentSection.classList.toggle('collapsed-section', isExpanded);
+            parentSection.classList.toggle('expanded-section', !isExpanded);
+            parentSection.classList.toggle('collapsed', isExpanded);
+            parentSection.classList.toggle('expanded', !isExpanded);
+
+            // Show / hide content
+            content.style.display = isExpanded ? 'none' : 'block';
+
+            // Store new state
+            parentSection.setAttribute('data-expanded', (!isExpanded).toString());
+
+            // Update the indicator icon
             const expandIcon = title.querySelector('.expand-icon');
             if (expandIcon) {
                 expandIcon.textContent = isExpanded ? '▼' : '▲';

@@ -205,6 +205,7 @@ main {
 /* Styles for the section when it's collapsed (takes minimal space in parent flexbox) */
 .left-panel-section.collapsed-section {
     flex: 0 0 auto; /* Don't grow, don't shrink, size based on title content */
+    margin-bottom: 0;          /* collapsed header takes the bare minimum */
 }
 /* End of Styles for dynamic left-panel sections */
 
@@ -258,13 +259,17 @@ main {
     /* Distribute space if multiple sections */
 }
 
-#customer-management-section, #all-sales-search-section {
-    flex-basis: 50%; /* Reverted from flex: 1 */
+#customer-management-section, #all-sales-search-section, #admin-section {
     display: flex;
     flex-direction: column;
-    overflow-y: auto; 
-    min-height: 0; 
+    overflow-y: auto;
+    min-height: 0;
 }
+
+#customer-management-section.expanded-section, #all-sales-search-section.expanded-section, #admin-section.expanded-section {
+    flex: 1 1 0%; /* Only expanded sections should grow */
+}
+
 #cart-section, #parked-sales-section {
     flex-basis: auto; /* Let content decide, but allow parked sales to collapse */
     display: flex;
@@ -1482,6 +1487,7 @@ button {
 /* Styles for the section when it's collapsed (takes minimal space in parent flexbox) */
 .left-panel-section.collapsed-section {
     flex: 0 0 auto; /* Don't grow, don't shrink, size based on title content */
+    margin-bottom: 0;          /* collapsed header takes the bare minimum */
 }
 /* End of ADDED Styles for dynamic left-panel sections */
 
@@ -1639,7 +1645,7 @@ button {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Existing, adjust minmax as needed */
     gap: 10px; /* Existing */
     padding: 10px;
-    border: 1px solid #ddd;
+    border: 2px solid #ddd;
     border-radius: 4px;
     background-color: #f9f9f9;
 }

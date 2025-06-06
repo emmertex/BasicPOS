@@ -174,8 +174,7 @@ def create_app(config_class=Config):
     # The static_url_path defaults to /static, so Flask will serve files from 
     # static_folder_path (e.g., frontend/static/css/style.css) at /static/css/style.css
     # No need for an explicit @app.route('/static/<path:filename>') if using default static handling.
-
-    # Example URL: http://localhost:5000/uploads/item_123_abc12345_myimage.jpg
+ 
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):
         try:
