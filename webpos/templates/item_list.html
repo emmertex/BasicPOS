@@ -16,7 +16,29 @@
         .icon.ticked { color: darkgreen; }
         .icon.unticked { color: lightgrey; }
         .item-photo { max-width: 50px; max-height: 50px; }
-        .stock-input { width: 60px; text-align: right; }
+        .stock-input { width: 60px; text-align: right; height: 34px; }
+        /* Uniform height and padding for controls in results table */
+        .item-table select,
+        .item-table button {
+            height: 34px;
+        }
+        .item-table button {
+            padding: 0 10px; /* equal left and right spacing */
+        }
+        /* Consistent control height */
+        .search-form input[type="text"],
+        .search-form input[type="number"],
+        .search-form select,
+        .search-form button {
+            height: 34px;
+            box-sizing: border-box;
+        }
+        /* Align search button with controls */
+        .search-form button {
+            align-self: flex-start; /* stick to top like the labelled inputs */
+            margin-top: 22px; /* roughly label height to align with input boxes */
+            padding: 0 10px; /* horizontal padding for text */
+        }
     </style>
 </head>
 <body>
@@ -74,6 +96,14 @@
                 <option value="yes" {% if search_params.stock_tracked == 'yes' %}selected{% endif %}>Yes</option>
                 <option value="no" {% if search_params.stock_tracked == 'no' %}selected{% endif %}>No</option>
                 <option value="all" {% if search_params.stock_tracked == 'all' %}selected{% endif %}>All</option>
+            </select>
+        </div>
+        <div>
+            <label for="has_image">Has Image</label>
+            <select name="has_image" id="has_image">
+                <option value="all" {% if search_params.has_image == 'all' %}selected{% endif %}>All</option>
+                <option value="yes" {% if search_params.has_image == 'yes' %}selected{% endif %}>Yes</option>
+                <option value="no" {% if search_params.has_image == 'no' %}selected{% endif %}>No</option>
             </select>
         </div>
         <div>

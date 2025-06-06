@@ -20,6 +20,7 @@ def item_list_page():
     low_stock_filter = request.args.get('low_stock_filter', 'all')
     show_on_website = request.args.get('show_on_website', 'all')
     stock_tracked = request.args.get('stock_tracked', 'all')
+    has_image = request.args.get('has_image', 'all')
     order_by = request.args.get('order_by', 'id_desc')
 
     # Get all categories for the dropdown
@@ -34,6 +35,7 @@ def item_list_page():
         'low_stock_filter': low_stock_filter,
         'show_on_website': show_on_website,
         'stock_tracked': stock_tracked,
+        'has_image': has_image,
         'order_by': order_by,
         'limit': limit
     }
@@ -74,6 +76,14 @@ def item_list_page():
         query = query.filter(Item.is_stock_tracked == True)
     elif stock_tracked == 'no':
         query = query.filter(Item.is_stock_tracked == False)
+
+    # Filter by presence of images
+    if has_image == 'yes':
+        # Items that have at least one associated photo
+        query = query.filter(Item.photos.any())
+    elif has_image == 'no':
+        # Items with no associated photos
+        query = query.filter(~Item.photos.any())
 
     # Order by
     order_map = {
