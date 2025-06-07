@@ -93,6 +93,61 @@
         .button-info:hover {
             background-color: #31b0d5;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+
+        .payment-details {
+            margin: 20px 0;
+        }
+
+        .form-group {
+            margin: 10px 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .payment-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .payment-buttons button {
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -270,25 +325,30 @@
     </div>
 
     <!-- Payment Modal -->
-    <div id="paymentModal" class="modal" style="display: none;">
+    <div id="paymentModal" class="modal">
         <div class="modal-content">
-            <span class="close-button" onclick="closePaymentModal()">&times;</span>
-            <h2>Process Payment / Finalize Sale</h2>
+            <h2>Process Payment</h2>
             <input type="hidden" id="paymentModalSaleId">
-            <div>
-                <label for="paymentAmount">Amount to Pay:</label>
-                <input type="number" id="paymentAmount" step="0.01" required>
+            <div class="payment-details">
+                <p>Total Amount: $<span id="payment-modal-total-amount">0.00</span></p>
+                <div class="form-group">
+                    <label for="paymentAmount">Payment Amount:</label>
+                    <input type="number" id="paymentAmount" step="0.01" min="0">
+                </div>
             </div>
-            <div class="payment-method-buttons" style="margin-top: 15px; margin-bottom: 15px;"> 
-                <button id="payCashButton" type="button" class="btn btn-success">Pay Cash</button>
-                <button id="payChequeButton" type="button" class="btn btn-info">Pay Cheque</button>
-                <button id="payEftposButton" type="button" class="btn btn-info">Pay EFTPOS</button>
-                <button id="invoiceRemainingButton" type="button" class="btn btn-warning">Invoice & Keep Open</button>
+            <div class="payment-buttons">
+                <button id="payCashButton" class="btn btn-success">Pay Cash</button>
+                <button id="payChequeButton" class="btn btn-info">Pay Cheque</button>
+                <button id="payEftposButton" class="btn btn-primary">Pay EFTPOS</button>
+                <button id="payTyroButton" class="btn btn-warning">Pay Tyro EFTPOS</button>
+                <button id="invoiceRemainingButton" class="btn btn-secondary">Invoice & Keep Open</button>
+                <button id="close-payment-modal-button" class="btn btn-danger">Cancel</button>
             </div>
         </div>
     </div>
 
-    <script type="module" src="static/js/app.js?v=1"></script>
+    <script type="module" src="static/js/app.js?v=2"></script>
+    <script type="module" src="static/js/paymentService.js?v=2"></script>
 
     <!-- Add Customer Modal -->
     <div id="customerModal" class="modal" style="display: none;">

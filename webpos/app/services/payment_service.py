@@ -3,9 +3,11 @@ from app.models.payment import Payment
 from app.models.sale import Sale
 from decimal import Decimal
 from app.services.sale_service import SaleService
+from app.services.tyro_service import TyroService
+import json
 
 class PaymentService:
-    ALLOWED_PAYMENT_TYPES = ['Cash', 'Cheque', 'EFTPOS']
+    ALLOWED_PAYMENT_TYPES = ['Cash', 'Cheque', 'EFTPOS', 'Tyro EFTPOS']
 
     @staticmethod
     def record_payment(sale_id, data):
@@ -29,26 +31,58 @@ class PaymentService:
         except ValueError:
             return None, "Invalid amount format."
 
-        # Optional: Check if sale status allows payment (e.g., 'Invoice', 'Open')
-        # For now, we allow payment on any sale, POS logic might restrict this.
-        # if sale.status not in ['Open', 'Quote', 'Invoice']:
-        #     return None, f"Cannot record payment for a sale with status '{sale.status}'." 
+        # Handle Tyro EFTPOS payments
+        if payment_type == 'Tyro EFTPOS':
+            tyro_service = TyroService()
+            merchant_id = data.get('merchant_id')
+            terminal_id = data.get('terminal_id')
+            integration_key = data.get('integration_key')
 
+            if not all([merchant_id, terminal_id, integration_key]):
+                return None, "Missing required Tyro EFTPOS fields: merchant_id, terminal_id, and integration_key"
+
+            # Process payment through Tyro
+            result, error = tyro_service.process_payment(
+                float(amount),
+                merchant_id,
+                terminal_id,
+                integration_key
+            )
+
+            if error:
+                return None, f"Tyro payment failed: {error}"
+
+            # If payment was successful, record it in our database
+            try:
+                new_payment = Payment(
+                    sale_id=sale_id,
+                    payment_type=payment_type,
+                    amount=amount,
+                    payment_details=json.dumps(result)  # Store Tyro response details
+                )
+                db.session.add(new_payment)
+                db.session.commit()
+                
+                # Check if sale is fully paid and update status
+                updated_sale, status_message = SaleService.check_and_update_payment_status(sale_id)
+                
+                return new_payment, None
+            except Exception as e:
+                db.session.rollback()
+                return None, str(e)
+
+        # Handle other payment types
         try:
             new_payment = Payment(
                 sale_id=sale_id,
                 payment_type=payment_type,
                 amount=amount
-                # payment_date is default NOW in model
             )
             db.session.add(new_payment)
             db.session.commit()
             
             # Check if sale is fully paid and update sale.status to 'Paid'
             updated_sale, status_message = SaleService.check_and_update_payment_status(sale_id)
-            # status_message can be logged or returned if needed
-            # For now, the primary return is the new_payment object.
-            # The route handler will fetch the updated sale anyway.
 
             return new_payment, None
         except Exception as e:
@@ -59,6 +93,5 @@ class PaymentService:
     def get_payments_for_sale(sale_id):
         sale = Sale.query.get(sale_id)
         if not sale:
-            # Depending on desired behavior, could return empty list or error
             return None, "Sale not found."
-        return sale.payments, None # payments relationship from Sale model 
+        return sale.payments, None 

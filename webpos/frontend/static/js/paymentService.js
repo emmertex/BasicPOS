@@ -15,63 +15,214 @@ let invoiceRemainingButton;
 let payCashButton;
 let payChequeButton;
 let payEftposButton;
+let payTyroButton;
 let closePaymentModalButton;   // Assuming a dedicated close button
 
 export function initPaymentService() {
+    console.log("Initializing payment service...");
+    
+    // Get all required elements
     paymentModal = document.getElementById('paymentModal');
     paymentModalSaleIdInput = document.getElementById('paymentModalSaleId');
-    paymentModalTotalAmountSpan = document.getElementById('payment-modal-total-amount'); // Example ID
+    paymentModalTotalAmountSpan = document.getElementById('payment-modal-total-amount');
     paymentAmountInput = document.getElementById('paymentAmount');
-    // paymentTypeSelect = document.getElementById('paymentTypeSelect'); // If you have this
     invoiceRemainingButton = document.getElementById('invoiceRemainingButton');
     payCashButton = document.getElementById('payCashButton');
     payChequeButton = document.getElementById('payChequeButton');
     payEftposButton = document.getElementById('payEftposButton');
-    closePaymentModalButton = document.getElementById('close-payment-modal-button'); // Example ID for a close button
+    payTyroButton = document.getElementById('payTyroButton');
+    closePaymentModalButton = document.getElementById('close-payment-modal-button');
 
-    if (payCashButton) payCashButton.addEventListener('click', () => handleSubmitPayment('Cash'));
-    if (payChequeButton) payChequeButton.addEventListener('click', () => handleSubmitPayment('Cheque'));
-    if (payEftposButton) payEftposButton.addEventListener('click', () => handleSubmitPayment('EFTPOS'));
-    if (invoiceRemainingButton) invoiceRemainingButton.addEventListener('click', handleInvoiceAndKeepOpen);
-    if (closePaymentModalButton) closePaymentModalButton.addEventListener('click', closePaymentModal);
-    
-    // Window click to close modal (if desired, can be kept in app.js or moved here)
-    // window.addEventListener('click', (event) => {
-    //     if (paymentModal && event.target == paymentModal) {
-    //         closePaymentModal();
-    //     }
-    // });
+    // Log the state of each element
+    console.log("Payment modal elements found:", {
+        paymentModal: !!paymentModal,
+        paymentModalSaleIdInput: !!paymentModalSaleIdInput,
+        paymentModalTotalAmountSpan: !!paymentModalTotalAmountSpan,
+        paymentAmountInput: !!paymentAmountInput,
+        invoiceRemainingButton: !!invoiceRemainingButton,
+        payCashButton: !!payCashButton,
+        payChequeButton: !!payChequeButton,
+        payEftposButton: !!payEftposButton,
+        payTyroButton: !!payTyroButton,
+        closePaymentModalButton: !!closePaymentModalButton
+    });
+
+    // Add event listeners only if elements exist
+    if (payCashButton) {
+        payCashButton.addEventListener('click', () => handleSubmitPayment('Cash'));
+        console.log("Added click listener to payCashButton");
+    }
+    if (payChequeButton) {
+        payChequeButton.addEventListener('click', () => handleSubmitPayment('Cheque'));
+        console.log("Added click listener to payChequeButton");
+    }
+    if (payEftposButton) {
+        payEftposButton.addEventListener('click', () => handleSubmitPayment('EFTPOS'));
+        console.log("Added click listener to payEftposButton");
+    }
+    if (payTyroButton) {
+        payTyroButton.addEventListener('click', handleTyroPayment);
+        console.log("Added click listener to payTyroButton");
+    }
+    if (invoiceRemainingButton) {
+        invoiceRemainingButton.addEventListener('click', handleInvoiceAndKeepOpen);
+        console.log("Added click listener to invoiceRemainingButton");
+    }
+    if (closePaymentModalButton) {
+        closePaymentModalButton.addEventListener('click', closePaymentModal);
+        console.log("Added click listener to closePaymentModalButton");
+    }
+
+    // Add window click handler to close modal when clicking outside
+    window.addEventListener('click', (event) => {
+        if (paymentModal && event.target === paymentModal) {
+            closePaymentModal();
+        }
+    });
+
+    console.log("Payment service initialization complete");
 }
 
 export function openPaymentModal(saleToProcess) {
-    if (!paymentModal || !paymentModalSaleIdInput || !paymentAmountInput || !invoiceRemainingButton || !paymentModalTotalAmountSpan) {
-        console.error("Payment modal elements not found or not initialized.");
-        showToast("Cannot open payment modal.", "error");
+    console.log("Opening payment modal for sale:", saleToProcess);
+    
+    // Check if elements are initialized
+    if (!paymentModal) {
+        console.error("Payment modal element not found");
+        showToast("Cannot open payment modal - modal element not found.", "error");
+        return;
+    }
+    if (!paymentModalSaleIdInput) {
+        console.error("Payment modal sale ID input not found");
+        showToast("Cannot open payment modal - sale ID input not found.", "error");
+        return;
+    }
+    if (!paymentAmountInput) {
+        console.error("Payment amount input not found");
+        showToast("Cannot open payment modal - payment amount input not found.", "error");
+        return;
+    }
+    if (!invoiceRemainingButton) {
+        console.error("Invoice remaining button not found");
+        showToast("Cannot open payment modal - invoice button not found.", "error");
+        return;
+    }
+    if (!paymentModalTotalAmountSpan) {
+        console.error("Payment modal total amount span not found");
+        showToast("Cannot open payment modal - total amount display not found.", "error");
         return;
     }
 
     if (!saleToProcess || !saleToProcess.id || saleToProcess.amount_due === undefined) {
+        console.error("Invalid sale data:", saleToProcess);
         showToast("Invalid sale data for payment modal.", "error");
-        console.error("openPaymentModal: Invalid saleToProcess data", saleToProcess);
         return;
     }
 
+    // Set modal values
     paymentModalSaleIdInput.value = saleToProcess.id;
-    if(paymentModalTotalAmountSpan) paymentModalTotalAmountSpan.textContent = saleToProcess.sale_total !== undefined ? saleToProcess.sale_total.toFixed(2) : '0.00';
+    paymentModalTotalAmountSpan.textContent = saleToProcess.sale_total !== undefined ? saleToProcess.sale_total.toFixed(2) : '0.00';
     paymentAmountInput.value = saleToProcess.amount_due.toFixed(2);
-    paymentModal.style.display = 'block';
-
+    
     // Show/hide invoice button based on sale status
     if (saleToProcess.status === 'Open' || saleToProcess.status === 'Quote') {
         invoiceRemainingButton.style.display = 'inline-block';
     } else {
         invoiceRemainingButton.style.display = 'none';
     }
+
+    // Show the modal
+    paymentModal.style.display = 'block';
+    console.log("Payment modal opened successfully");
 }
 
 export function closePaymentModal() {
     if (paymentModal) {
         paymentModal.style.display = 'none';
+    }
+}
+
+async function handleTyroPayment() {
+    if (!paymentModalSaleIdInput || !paymentAmountInput) {
+        showToast("Payment form elements not available.", "error");
+        return;
+    }
+
+    const saleId = paymentModalSaleIdInput.value;
+    const amount = parseFloat(paymentAmountInput.value);
+
+    if (!saleId) {
+        showToast("Sale ID is missing for payment.", "error");
+        return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+        showToast("Invalid payment amount.", "error");
+        return;
+    }
+
+    // Get Tyro terminal info from localStorage or prompt for it
+    const tyroConfig = JSON.parse(localStorage.getItem('tyroConfig') || '{}');
+    if (!tyroConfig.merchantId || !tyroConfig.terminalId || !tyroConfig.integrationKey) {
+        // If no saved config, prompt for terminal pairing
+        const merchantId = prompt("Enter Tyro Merchant ID:");
+        const terminalId = prompt("Enter Tyro Terminal ID:");
+        
+        if (!merchantId || !terminalId) {
+            showToast("Terminal pairing cancelled.", "error");
+            return;
+        }
+
+        try {
+            // Pair the terminal
+            const pairResult = await apiCall('/payments/tyro/pair', 'POST', {
+                merchant_id: merchantId,
+                terminal_id: terminalId
+            });
+
+            if (!pairResult || !pairResult.integrationKey) {
+                showToast("Failed to pair Tyro terminal.", "error");
+                return;
+            }
+
+            // Save the configuration
+            tyroConfig.merchantId = merchantId;
+            tyroConfig.terminalId = terminalId;
+            tyroConfig.integrationKey = pairResult.integrationKey;
+            localStorage.setItem('tyroConfig', JSON.stringify(tyroConfig));
+        } catch (error) {
+            showToast("Error pairing terminal: " + error.message, "error");
+            return;
+        }
+    }
+
+    // Process the payment
+    const paymentData = {
+        amount: amount,
+        payment_type: 'Tyro EFTPOS',
+        merchant_id: tyroConfig.merchantId,
+        terminal_id: tyroConfig.terminalId,
+        integration_key: tyroConfig.integrationKey
+    };
+
+    try {
+        const result = await apiCall(`/sales/${saleId}/payments`, 'POST', paymentData);
+        if (result && result.id) {
+            showToast("Tyro payment processed successfully!", "success");
+            closePaymentModal();
+            
+            if (state.currentSale && state.currentSale.id == saleId) {
+                state.currentSale = result; // Use the returned sale object directly
+                updateCartDisplay();
+            }
+            
+            loadParkedSales();
+            openPrintOptionsModal(saleId, result.status, result.customer?.email);
+        } else {
+            showToast(result.message || "Tyro payment failed. Please try again.", "error");
+        }
+    } catch (error) {
+        console.error("Error processing Tyro payment:", error);
+        showToast("Error processing Tyro payment: " + error.message, "error");
     }
 }
 
@@ -93,48 +244,23 @@ async function handleSubmitPayment(paymentType) {
     }
 
     const paymentData = {
-        sale_id: saleId,
         amount: amount,
         payment_type: paymentType
     };
 
     try {
-        const result = await apiCall('/payments/', 'POST', paymentData);
-        if (result && result.success) {
+        const result = await apiCall(`/sales/${saleId}/payments`, 'POST', paymentData);
+        if (result && result.id) {
             showToast("Payment processed successfully!", "success");
             closePaymentModal();
-            let finalSaleStatus = 'Unknown'; // For deciding print options
-            let customerEmailForPrint = null; // Variable to hold customer email
-
+            
             if (state.currentSale && state.currentSale.id == saleId) {
-                const updatedSale = await apiCall(`/sales/${saleId}`);
-                if (updatedSale) {
-                    state.currentSale = updatedSale; // Update current sale state
-                    finalSaleStatus = updatedSale.status;
-                    // Extract customer email
-                    customerEmailForPrint = updatedSale.customer && updatedSale.customer.email ? updatedSale.customer.email : null;
-                    updateCartDisplay(); 
-                } else {
-                    // If fetching updatedSale fails, we might not have email.
-                    loadSaleIntoCart(saleId); 
-                }
-            } else {
-                // If the processed sale wasn't the current one, fetch its details
-                const saleData = await apiCall(`/sales/${saleId}`);
-                if(saleData) {
-                    finalSaleStatus = saleData.status;
-                    // Extract customer email
-                    customerEmailForPrint = saleData.customer && saleData.customer.email ? saleData.customer.email : null;
-                    // If the sale just paid for was not the one in cart, and should now be, then load it.
-                    // Example: if (state.currentSale?.id !== saleId) { loadSaleIntoCart(saleId, saleData); }
-                }
+                state.currentSale = result; // Use the returned sale object directly
+                updateCartDisplay();
             }
             
-            loadParkedSales(); // Refresh parked sales list
-
-            // Call openPrintOptionsModal with customerEmailForPrint
-            openPrintOptionsModal(saleId, finalSaleStatus, customerEmailForPrint);
-
+            loadParkedSales();
+            openPrintOptionsModal(saleId, result.status, result.customer?.email);
         } else {
             showToast(result.message || "Payment failed. Please try again.", "error");
         }

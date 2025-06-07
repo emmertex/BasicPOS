@@ -84,9 +84,11 @@ CREATE TABLE Payments (
     payment_type VARCHAR(50) NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_details TEXT NULL,
     PRIMARY KEY (id),
     FOREIGN KEY(sale_id) REFERENCES Sales (id) ON DELETE CASCADE
 );
+
 -- Quick Add Items Table (as specified above)
 CREATE TABLE quick_add_items (
     id INTEGER NOT NULL AUTO_INCREMENT,
