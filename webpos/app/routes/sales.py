@@ -286,5 +286,8 @@ def add_payment_to_sale_route(sale_id):
     if not data or 'amount' not in data or 'payment_type' not in data:
         return jsonify({"error": "Invalid input, amount and payment_type are required"}), 400
     
-    payment, error = SaleService.add_payment_to_sale(sale_id, data)
-    return jsonify(sale_to_dict(sale)), 200 
+    updated_sale, error = SaleService.add_payment_to_sale(sale_id, data)
+    if error:
+        return jsonify({"error": error}), 400
+    
+    return jsonify(sale_to_dict(updated_sale)), 200 

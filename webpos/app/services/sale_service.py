@@ -6,6 +6,7 @@ from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN # Import ROUND_HALF_UP and ROUND_DOWN
 from flask import current_app # Added for config access
+from app.models.payment import Payment
 
 class SaleService:
     @staticmethod
@@ -505,5 +506,50 @@ class SaleService:
         except Exception as e:
             db.session.rollback()
             return None, str(e)
+
+    @staticmethod
+    def add_payment_to_sale(sale_id, data):
+        """Add a payment to a sale and update its status."""
+        sale = Sale.query.get(sale_id)
+        if not sale:
+            return None, "Sale not found."
+
+        if sale.status in ['Void']:
+            return None, f"Cannot add payment to a sale with status '{sale.status}'."
+
+        payment_type = data.get('payment_type')
+        amount_str = data.get('amount')
+
+        if not payment_type or not amount_str:
+            return None, "Missing required fields: payment_type and amount."
+
+        try:
+            amount = Decimal(amount_str)
+            if amount <= 0:
+                return None, "Payment amount must be positive."
+        except ValueError:
+            return None, "Invalid amount format."
+
+        # Create and add the payment
+        try:
+            new_payment = Payment(
+                sale_id=sale_id,
+                payment_type=payment_type,
+                amount=amount,
+                payment_details=data.get('payment_details')  # Optional payment details
+            )
+            db.session.add(new_payment)
+            db.session.commit()
+
+            # Update sale status based on new payment
+            updated_sale, error = SaleService.check_and_update_payment_status(sale_id)
+            if error:
+                return None, f"Payment recorded but error updating sale status: {error}"
+
+            return updated_sale, None
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error adding payment to sale {sale_id}: {e}")
+            return None, f"Error recording payment: {str(e)}"
 
     # More methods will be added: park_sale, record_payment etc. 
