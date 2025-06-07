@@ -203,6 +203,7 @@
                         <a href="/stock/" class="button button-secondary">Mobile Stock Management</a>
                         <a href="/stockdt/" class="button button-info">Desktop Stock Management</a>
                         <a href="/categories" class="button">Category Management</a>
+                        <button id="tyro-config-button" class="button">Tyro Configuration</button>
                     </div>
                 </div>
             </section>
@@ -673,6 +674,16 @@
                 <button class="btn btn-success" id="email-quote-a4-btn" style="display:none;">Email Quote (A4) to Customer</button>
                 <button class="btn btn-warning" id="print-quote-receipt-btn">Print as Quote - Receipt</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Tyro Configuration Modal -->
+    <div id="tyro-config-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-button" id="close-tyro-config-modal">&times;</span>
+            <h2 id="tyro-config-modal-title">Tyro Configuration</h2>
+            <button id="get-tyro-terminal-info-button" class="btn btn-info">Get Terminal Info</button>
+            <div id="tyro-terminal-info-result"></div>
         </div>
     </div>
 

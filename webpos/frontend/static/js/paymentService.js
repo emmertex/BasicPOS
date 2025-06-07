@@ -18,6 +18,15 @@ let payEftposButton;
 let payTyroButton;
 let closePaymentModalButton;   // Assuming a dedicated close button
 
+// Tyro Modal Elements
+let tyroPaymentModal;
+let tyroMessages;
+let tyroResult;
+let tyroMerchantReceipt;
+let tyroCustomerReceipt;
+let cancelTyroPaymentButton;
+let iclient; // To hold the Tyro client instance
+
 export function initPaymentService() {
     console.log("Initializing payment service...");
     
@@ -33,6 +42,14 @@ export function initPaymentService() {
     payTyroButton = document.getElementById('payTyroButton');
     closePaymentModalButton = document.getElementById('close-payment-modal-button');
 
+    // Tyro modal elements
+    tyroPaymentModal = document.getElementById('tyro-payment-modal');
+    tyroMessages = document.getElementById('tyro-messages');
+    tyroResult = document.getElementById('tyro-result');
+    tyroMerchantReceipt = document.getElementById('tyro-merchant-receipt');
+    tyroCustomerReceipt = document.getElementById('tyro-customer-receipt');
+    cancelTyroPaymentButton = document.getElementById('cancel-tyro-payment-button');
+
     // Log the state of each element
     console.log("Payment modal elements found:", {
         paymentModal: !!paymentModal,
@@ -45,6 +62,15 @@ export function initPaymentService() {
         payEftposButton: !!payEftposButton,
         payTyroButton: !!payTyroButton,
         closePaymentModalButton: !!closePaymentModalButton
+    });
+
+    console.log("Tyro modal elements found:", {
+        tyroPaymentModal: !!tyroPaymentModal,
+        tyroMessages: !!tyroMessages,
+        tyroResult: !!tyroResult,
+        tyroMerchantReceipt: !!tyroMerchantReceipt,
+        tyroCustomerReceipt: !!tyroCustomerReceipt,
+        cancelTyroPaymentButton: !!cancelTyroPaymentButton
     });
 
     // Add event listeners only if elements exist
@@ -71,6 +97,15 @@ export function initPaymentService() {
     if (closePaymentModalButton) {
         closePaymentModalButton.addEventListener('click', closePaymentModal);
         console.log("Added click listener to closePaymentModalButton");
+    }
+
+    if (cancelTyroPaymentButton) {
+        cancelTyroPaymentButton.addEventListener('click', () => {
+            if (iclient) {
+                iclient.cancelCurrentTransaction();
+            }
+            tyroPaymentModal.style.display = 'none';
+        });
     }
 
     // Add window click handler to close modal when clicking outside
@@ -142,12 +177,68 @@ export function closePaymentModal() {
     }
 }
 
+function formatReceipt(text) {
+    return "<pre>" + text + "</pre>";
+}
+
+function formatResult(response) {
+    var result = "<table>";
+    result += "<tr><td>Result:</td><td>" + response.result + "</td></tr>"
+    result += "</table>";
+    return result;
+}
+
+async function handleTransactionCompletion(response, saleId, amount) {
+    console.log("Purchase response: " + JSON.stringify(response));
+    if (tyroCustomerReceipt && response.customerReceipt) {
+        tyroCustomerReceipt.innerHTML = formatReceipt(response.customerReceipt);
+    }
+    if (tyroResult) {
+        tyroResult.innerHTML = formatResult(response);
+    }
+
+    if (response.result === 'approved') {
+        // Payment was approved, now record it on the backend
+        const paymentData = {
+            amount: amount,
+            payment_type: 'Tyro EFTPOS',
+            payment_details: JSON.stringify(response)
+        };
+        
+        try {
+            const result = await apiCall(`/sales/${saleId}/payments`, 'POST', paymentData);
+            if (result && result.id) {
+                showToast("Tyro payment successfully recorded!", "success");
+                // The modal will be closed or show a success message, then the print modal will open.
+                setTimeout(() => {
+                    if(tyroPaymentModal) tyroPaymentModal.style.display = 'none';
+                    if (state.currentSale && state.currentSale.id == saleId) {
+                        state.currentSale = result;
+                        updateCartDisplay();
+                    }
+                    loadParkedSales();
+                    openPrintOptionsModal(saleId, result.status, result.customer?.email);
+                }, 2000); // Wait 2 seconds to show the result
+            } else {
+                showToast(result.message || "Failed to record Tyro payment on server.", "error");
+            }
+        } catch (error) {
+            console.error("Error recording Tyro payment:", error);
+            showToast("Error recording Tyro payment: " + error.message, "error");
+        }
+    } else {
+        showToast(`Tyro payment ${response.result}.`, "error");
+            setTimeout(() => {
+            if(tyroPaymentModal) tyroPaymentModal.style.display = 'none';
+        }, 2000); // Wait 2 seconds to show the result
+    }
+}
+
 async function handleTyroPayment() {
     if (!paymentModalSaleIdInput || !paymentAmountInput) {
         showToast("Payment form elements not available.", "error");
         return;
     }
-
     const saleId = paymentModalSaleIdInput.value;
     const amount = parseFloat(paymentAmountInput.value);
 
@@ -160,69 +251,67 @@ async function handleTyroPayment() {
         return;
     }
 
-    // Get Tyro terminal info from localStorage or prompt for it
-    const tyroConfig = JSON.parse(localStorage.getItem('tyroConfig') || '{}');
-    if (!tyroConfig.merchantId || !tyroConfig.terminalId || !tyroConfig.integrationKey) {
-        // If no saved config, prompt for terminal pairing
-        const merchantId = prompt("Enter Tyro Merchant ID:");
-        const terminalId = prompt("Enter Tyro Terminal ID:");
-        
-        if (!merchantId || !terminalId) {
-            showToast("Terminal pairing cancelled.", "error");
-            return;
-        }
+    // Get MID and TID, with localStorage fallback for convenience
+    let savedTyroTerminals = JSON.parse(localStorage.getItem('tyroTerminals') || '{}');
 
-        try {
-            // Pair the terminal
-            const pairResult = await apiCall('/payments/tyro/pair', 'POST', {
-                merchant_id: merchantId,
-                terminal_id: terminalId
-            });
-
-            if (!pairResult || !pairResult.integrationKey) {
-                showToast("Failed to pair Tyro terminal.", "error");
-                return;
-            }
-
-            // Save the configuration
-            tyroConfig.merchantId = merchantId;
-            tyroConfig.terminalId = terminalId;
-            tyroConfig.integrationKey = pairResult.integrationKey;
-            localStorage.setItem('tyroConfig', JSON.stringify(tyroConfig));
-        } catch (error) {
-            showToast("Error pairing terminal: " + error.message, "error");
-            return;
-        }
+    const mid = prompt("Please enter the Tyro Merchant ID (MID):", savedTyroTerminals.mid || "");
+    if (!mid) {
+        showToast("Merchant ID is required for Tyro payment.", "info");
+        return;
     }
 
-    // Process the payment
+    const tid = prompt("Please enter the Tyro Terminal ID (TID):", savedTyroTerminals.tid || "");
+    if (!tid) {
+        showToast("Terminal ID is required for Tyro payment.", "info");
+        return;
+    }
+
+    // Save the entered details for next time
+    savedTyroTerminals = { mid, tid };
+    localStorage.setItem('tyroTerminals', JSON.stringify(savedTyroTerminals));
+
     const paymentData = {
         amount: amount,
         payment_type: 'Tyro EFTPOS',
-        merchant_id: tyroConfig.merchantId,
-        terminal_id: tyroConfig.terminalId,
-        integration_key: tyroConfig.integrationKey
+        payment_details: { 
+            mid: mid,
+            tid: tid
+        }
     };
 
+    showToast("Processing Tyro payment... Please follow instructions on the terminal.", "info");
+    
+    // Disable payment buttons to prevent double submission
+    const allPaymentButtons = document.querySelectorAll('.payment-buttons button');
+    allPaymentButtons.forEach(button => button.disabled = true);
+
     try {
+        // This single API call now handles the entire backend payment flow
         const result = await apiCall(`/sales/${saleId}/payments`, 'POST', paymentData);
+        
         if (result && result.id) {
-            showToast("Tyro payment processed successfully!", "success");
+            showToast("Tyro payment processed and recorded successfully!", "success");
             closePaymentModal();
             
+            // Update UI with the final sale state from the server
             if (state.currentSale && state.currentSale.id == saleId) {
-                state.currentSale = result; // Use the returned sale object directly
+                state.currentSale = result;
                 updateCartDisplay();
             }
             
             loadParkedSales();
             openPrintOptionsModal(saleId, result.status, result.customer?.email);
         } else {
-            showToast(result.message || "Tyro payment failed. Please try again.", "error");
+            // Use a more specific error from the backend if available
+            const errorMessage = result ? result.error : "Tyro payment failed. Please check the terminal and try again.";
+            showToast(errorMessage, "error");
         }
     } catch (error) {
         console.error("Error processing Tyro payment:", error);
         showToast("Error processing Tyro payment: " + error.message, "error");
+    } finally {
+        // Re-enable payment buttons
+        allPaymentButtons.forEach(button => button.disabled = false);
     }
 }
 

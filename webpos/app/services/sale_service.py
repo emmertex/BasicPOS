@@ -505,51 +505,51 @@ class SaleService:
             return sale, None
         except Exception as e:
             db.session.rollback()
-            return None, str(e)
+            current_app.logger.error(f"Exception updating sale details: {e}", exc_info=True)
+            return None, f"An unexpected error occurred: {str(e)}"
 
     @staticmethod
-    def add_payment_to_sale(sale_id, data):
-        """Add a payment to a sale and update its status."""
-        sale = Sale.query.get(sale_id)
-        if not sale:
-            return None, "Sale not found."
-
-        if sale.status in ['Void']:
-            return None, f"Cannot add payment to a sale with status '{sale.status}'."
-
-        payment_type = data.get('payment_type')
-        amount_str = data.get('amount')
-
-        if not payment_type or not amount_str:
-            return None, "Missing required fields: payment_type and amount."
-
+    def update_sale_after_payment(sale_id):
+        """
+        Recalculates all totals and updates the payment status of a sale.
+        This should be called after any change to payments or sale items.
+        It does NOT commit the session, allowing it to be part of a larger transaction.
+        """
         try:
-            amount = Decimal(amount_str)
-            if amount <= 0:
-                return None, "Payment amount must be positive."
-        except ValueError:
-            return None, "Invalid amount format."
+            sale = Sale.query.get(sale_id)
+            if not sale:
+                return None, "Sale not found"
 
-        # Create and add the payment
-        try:
-            new_payment = Payment(
-                sale_id=sale_id,
-                payment_type=payment_type,
-                amount=amount,
-                payment_details=data.get('payment_details')  # Optional payment details
-            )
-            db.session.add(new_payment)
-            db.session.commit()
+            # Recalculate all totals from scratch
+            sale_details = SaleService._calculate_sale_details(sale_id)
+            
+            # Update the sale object with the newly calculated values
+            sale.subtotal_gross = sale_details['subtotal_gross']
+            sale.total_line_item_discount = sale_details['total_line_item_discount']
+            sale.subtotal_net_after_line_item_discounts = sale_details['subtotal_net_after_line_item_discounts']
+            sale.gst_amount = sale_details['gst_amount']
+            sale.sale_total = sale_details['sale_total']
+            sale.total_paid = sale_details['total_paid']
+            
+            # Update status based on payment
+            if sale.status not in ['Paid', 'Void', 'Quote']: # Don't override these statuses automatically
+                if sale.total_paid >= sale.sale_total:
+                    sale.status = 'Paid'
+                    # On becoming 'Paid', trigger stock reduction
+                    _, stock_error = SaleService._update_stock_for_sale_items(sale, increment=False)
+                    if stock_error:
+                        # This is a critical error, we should not proceed with the payment status change.
+                        current_app.logger.error(f"Stock could not be updated for sale {sale_id}. Rolling back status change. Error: {stock_error}")
+                        # The calling function should handle the rollback.
+                        return None, f"Stock update failed: {stock_error}"
+                elif sale.total_paid > 0:
+                    sale.status = 'Open' # Or could be 'Partially Paid' if you add that status
+                else: # No payment yet
+                    sale.status = 'Open'
 
-            # Update sale status based on new payment
-            updated_sale, error = SaleService.check_and_update_payment_status(sale_id)
-            if error:
-                return None, f"Payment recorded but error updating sale status: {error}"
-
-            return updated_sale, None
+            return sale, None
         except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error adding payment to sale {sale_id}: {e}")
-            return None, f"Error recording payment: {str(e)}"
+            current_app.logger.error(f"Error in update_sale_after_payment for sale_id {sale_id}: {str(e)}")
+            return None, str(e)
 
     # More methods will be added: park_sale, record_payment etc. 

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.services.payment_service import PaymentService
 from app.services.sale_service import SaleService # To get updated sale
 from app.services.tyro_service import TyroService
@@ -57,24 +57,25 @@ def get_tyro_terminal_info():
 
     return jsonify(result), 200
 
-@bp.route('/sales/<int:sale_id>/payments', methods=['POST'])
+@bp.route('sales/<int:sale_id>/payments', methods=['POST'])
 def record_payment_route(sale_id):
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid input"}), 400
     
-    payment, error = PaymentService.record_payment(sale_id, data)
+    # Use the correct, refactored service
+    updated_sale, error = PaymentService.record_payment(sale_id, data)
+    
     if error:
-        status_code = 404 if "not found" in error.lower() else 400
-        if "Invalid payment_type" in error or "Invalid amount" in error or "Missing required fields" in error:
-            status_code = 400
-        return jsonify({"error": error}), status_code
+        # Log the detailed error on the server for debugging
+        current_app.logger.error(f"Error recording payment for sale {sale_id}: {error}")
+        # Return a generic but helpful error to the client
+        return jsonify({"error": f"Error recording payment: {error}"}), 400
     
     # Return the updated sale object, which will now include this payment
-    updated_sale = SaleService.get_sale_by_id(sale_id)
     return jsonify(sale_to_dict(updated_sale)), 201
 
-@bp.route('/sales/<int:sale_id>/payments', methods=['GET'])
+@bp.route('sales/<int:sale_id>/payments', methods=['GET'])
 def get_payments_for_sale_route(sale_id):
     payments, error = PaymentService.get_payments_for_sale(sale_id)
     if error: # e.g., Sale not found

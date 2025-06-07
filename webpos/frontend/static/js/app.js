@@ -55,6 +55,7 @@ import { initPaymentService, openPaymentModal as serviceOpenPaymentModal } from 
 import { initPrintService } from './printService.js';
 import { initQuickAddService, loadQuickAddItems as serviceLoadQuickAddItems } from './quickAddService.js';
 import { initSalesService, loadParkedSales } from './salesService.js';
+import { initAdmin } from './admin.js';
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -68,6 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initCartService();
     initQuickAddService();
     initSalesService();
+    initAdmin();
 
     console.log("All services initialized");
 

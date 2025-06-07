@@ -151,7 +151,7 @@ def create_app(config_class=Config):
     app.register_blueprint(sales_bp, url_prefix='/api/sales')
 
     from app.routes.payments import bp as payments_bp
-    app.register_blueprint(payments_bp, url_prefix='/api/payments')
+    app.register_blueprint(payments_bp, url_prefix='/api')
 
     from app.routes.quick_add_items import quick_add_items_bp
     app.register_blueprint(quick_add_items_bp, url_prefix='/api/quick_add_items')
