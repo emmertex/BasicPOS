@@ -102,15 +102,7 @@ export function initItemService() {
     // Initial setup that depends on DOM elements being ready
     setupItemImageDropZone(); 
 
-    // Event Listeners for Add/Edit Item Modal internal buttons
-    if (submitItemButton) {
-        submitItemButton.addEventListener('click', () => handleSaveItem(false));
-    } else { console.warn("submit-item-button not found during itemService init"); }
-    
-    if (submitItemAndAddToCartButton) {
-        submitItemAndAddToCartButton.addEventListener('click', () => handleSaveItem(true));
-    } else { console.warn("submit-item-and-add-to-cart-button not found during itemService init"); }
-
+    // Event Listeners for other modal close buttons (if they have dedicated close buttons)
     if (closeAddEditItemModalButton) {
         closeAddEditItemModalButton.addEventListener('click', closeAddEditItemModal);
     } else { console.warn("close-add-edit-item-modal button not found during itemService init"); }
@@ -119,12 +111,11 @@ export function initItemService() {
         manageVariantsButton.addEventListener('click', handleManageVariantsClick);
     } else { console.warn("manage-variants-button not found during itemService init"); }
 
-    // Event Listeners for other modal close buttons (if they have dedicated close buttons)
-    if(closeVariantSelectionModalButton) {
+    if (closeVariantSelectionModalButton) {
         closeVariantSelectionModalButton.addEventListener('click', closeVariantSelectionModal);
     } else { console.warn("close-variant-selection-modal button not found during itemService init"); }
 
-    if(closeImagePreviewModalButton) {
+    if (closeImagePreviewModalButton) {
         closeImagePreviewModalButton.addEventListener('click', closeImagePreviewModal);
     } else { console.warn("closeImagePreviewModal button not found during itemService init"); }
 
