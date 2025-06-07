@@ -5,6 +5,7 @@ from flask_cors import CORS
 from flask_mail import Mail
 from config import Config
 import os
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -26,6 +27,9 @@ def create_app(config_class=Config):
     
     # Enable CORS for all routes
     CORS(app, resources={r"/*": {"origins": "*"}})
+
+    # Configure Flask to trust the proxy headers
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
     db.init_app(app)
     migrate.init_app(app, db)

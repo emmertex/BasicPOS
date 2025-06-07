@@ -274,7 +274,9 @@ export async function searchItems() {
                     // Call openVariantSelectionModal with the item, the callback, and config
                     openVariantSelectionModal(item, addToCartCallback, { showAddParentButton: false, actionButtonText: "Add to Cart" });
                 } else if (item.price !== null && item.price !== undefined) {
+                    // For regular items, add to cart directly
                     addItemToCart(item.id, item.price);
+                    showToast(`${item.title} added to cart.`, 'success');
                 } else {
                     showToast('This item cannot be added to cart (missing price or is a parent template).', 'warning');
                 }

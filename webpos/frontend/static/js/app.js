@@ -152,10 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initial Load Functions ---
     loadParkedSales();
     servicePreloadItems();
-    setTimeout(() => {
-        serviceLoadQuickAddItems(1);
-        console.log("Delayed loadQuickAddItems called after 2s timeout");
-    }, 2000); 
+    serviceLoadQuickAddItems(1);
     serviceLoadAndDisplayCustomers();
     
     // --- Finalize and Pay --- 

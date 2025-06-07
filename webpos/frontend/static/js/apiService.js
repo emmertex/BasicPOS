@@ -1,9 +1,9 @@
 import { showToast } from './toastService.js';
 
 // --- API Base URL ---
-// Use scheme-relative paths so the browser keeps the current protocol (http or https)
-const API_PREFIX_URL = `/api`;
-const ROOT_URL = ``;
+// Use the current protocol (http or https) from the window location
+const API_PREFIX_URL = `${window.location.protocol}//${window.location.host}/api`;
+const ROOT_URL = `${window.location.protocol}//${window.location.host}`;
 
 // --- Helper Functions ---
 export async function apiCall(endpoint, method = 'GET', body = null, queryParams = null, useApiPrefix = true) {
