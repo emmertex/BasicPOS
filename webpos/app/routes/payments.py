@@ -16,29 +16,31 @@ def payment_to_dict(payment):
         'payment_date': payment.payment_date.isoformat() if payment.payment_date else None
     }
 
-@bp.route('/sales/<int:sale_id>/payments', methods=['POST'])
-def record_payment_route(sale_id):
+@bp.route('/', methods=['POST'])
+def record_payment_route():
     data = request.get_json()
     if not data:
-        return jsonify({"error": "Invalid input"}), 400
+        return jsonify({"success": False, "message": "Invalid input"}), 400
+
+    sale_id = data.get('sale_id')
+    if not sale_id:
+        return jsonify({"success": False, "message": "Sale ID is missing"}), 400
     
     payment, error = PaymentService.record_payment(sale_id, data)
     if error:
         status_code = 404 if "not found" in error.lower() else 400
         if "Invalid payment_type" in error or "Invalid amount" in error or "Missing required fields" in error:
             status_code = 400
-        return jsonify({"error": error}), status_code
+        return jsonify({"success": False, "message": error}), status_code
     
-    # Return the updated sale object, which will now include this payment
-    updated_sale = SaleService.get_sale_by_id(sale_id)
-    return jsonify(sale_to_dict(updated_sale)), 201
+    return jsonify({"success": True, "message": "Payment recorded successfully", "payment": payment_to_dict(payment)}), 201
 
-@bp.route('/sales/<int:sale_id>/payments', methods=['GET'])
+@bp.route('/sale/<int:sale_id>', methods=['GET'])
 def get_payments_for_sale_route(sale_id):
     payments, error = PaymentService.get_payments_for_sale(sale_id)
     if error: # e.g., Sale not found
-        return jsonify({"error": error}), 404
+        return jsonify({"success": False, "message": error}), 404
     if payments is None: # Should be caught by error, but as a safeguard
-        return jsonify({"error": "Could not retrieve payments"}), 500
+        return jsonify({"success": False, "message": "Could not retrieve payments"}), 500
         
     return jsonify([payment_to_dict(p) for p in payments]), 200 

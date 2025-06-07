@@ -272,8 +272,9 @@
     <!-- Payment Modal -->
     <div id="paymentModal" class="modal" style="display: none;">
         <div class="modal-content">
-            <span class="close-button" onclick="closePaymentModal()">&times;</span>
+            <span id="close-payment-modal-button" class="close-button">&times;</span>
             <h2>Process Payment / Finalize Sale</h2>
+            <p>Total Sale Amount: <span id="payment-modal-total-amount">0.00</span></p>
             <input type="hidden" id="paymentModalSaleId">
             <div>
                 <label for="paymentAmount">Amount to Pay:</label>
