@@ -256,6 +256,23 @@ document.addEventListener('DOMContentLoaded', () => {
         loadParkedSales();
     }
 
+    // Named handlers to allow removal
+    async function handleSubmitItemButtonClick(event) {
+        event.preventDefault();
+        if (submitItemButton.disabled) return;
+        submitItemButton.disabled = true;
+        await serviceHandleSaveItem(false);
+        submitItemButton.disabled = false;
+    }
+
+    async function handleSubmitItemAndAddToCartButtonClick(event) {
+        event.preventDefault();
+        if (submitItemAndAddToCartButton.disabled) return;
+        submitItemAndAddToCartButton.disabled = true;
+        await serviceHandleSaveItem(true);
+        submitItemAndAddToCartButton.disabled = false;
+    }
+
     // --- Event Listeners ---
     // Item Search
     if (itemSearchButton) itemSearchButton.addEventListener('click', () => serviceSearchItems(itemSearchInput.value));
@@ -348,8 +365,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Item Modals & Related
     if (openAddItemModalButton) openAddItemModalButton.addEventListener('click', serviceOpenAddItemForm);
     if (closeAddEditItemModalButton) closeAddEditItemModalButton.addEventListener('click', serviceCloseAddEditItemModal);
-    if (submitItemButton) submitItemButton.addEventListener('click', () => serviceHandleSaveItem(false));
-    if (submitItemAndAddToCartButton) submitItemAndAddToCartButton.addEventListener('click', () => serviceHandleSaveItem(true));
+    if (submitItemButton) {
+        submitItemButton.removeEventListener('click', handleSubmitItemButtonClick);
+        submitItemButton.addEventListener('click', handleSubmitItemButtonClick);
+    }
+    if (submitItemAndAddToCartButton) {
+        submitItemAndAddToCartButton.removeEventListener('click', handleSubmitItemAndAddToCartButtonClick);
+        submitItemAndAddToCartButton.addEventListener('click', handleSubmitItemAndAddToCartButtonClick);
+    }
     if (manageVariantsButton) manageVariantsButton.addEventListener('click', serviceHandleManageVariantsClick);
     // itemImagesUploadInput 'change' listener is now part of serviceSetupItemImageDropZone
     if (closeVariantSelectionModalButton) closeVariantSelectionModalButton.addEventListener('click', serviceCloseVariantSelectionModal);

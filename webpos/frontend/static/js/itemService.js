@@ -55,6 +55,9 @@ let closeVariantSelectionModalButton; // For its own close button if not handled
 // Image Preview Modal buttons
 let closeImagePreviewModalButton; // For its own close button if not handled by window click
 
+// Add a guard variable at the top of the file
+let isSaving = false;
+
 export function initItemService() {
     // Item Search
     itemSearchInput = document.getElementById('item-search-input');
@@ -576,60 +579,64 @@ export function closeAddEditItemModal() {
 }
 
 export async function handleSaveItem(addToCartAfterSave = false) {
-    const itemId = editItemIdInput.value;
-    const title = itemTitleInput.value.trim();
-    const sku = itemSkuInput.value.trim();
-    const priceText = itemPriceInput.value.trim();
-    const stockQuantity = parseInt(itemStockQuantityInput.value) || 0;
-    const lowStockLevel = parseInt(itemLowStockLevelInput.value) || -1;
-    const description = itemDescriptionInput.value.trim();
-    const parentId = parseInt(itemParentIdInput.value) || -1;
-    const isStockTracked = itemIsStockTrackedCheckbox.checked;
-    const showOnWebsite = itemShowOnWebsiteCheckbox.checked;
-    const isActive = itemIsActiveCheckbox.checked;
-
-    if (!title || !priceText) {
-        showToast('Title and Price are required for item.', 'error');
+    console.log("[itemService.js] handleSaveItem called with addToCartAfterSave:", addToCartAfterSave);
+    if (isSaving) {
+        console.log("[itemService.js] handleSaveItem already in progress, ignoring duplicate call.");
         return null;
     }
-    const price = parseFloat(priceText);
-    if (isNaN(price)) {
-        showToast('Price must be a valid number.', 'error');
-        return null;
-    }
-
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('sku', sku);
-    formData.append('price', price.toString());
-    formData.append('stock_quantity', stockQuantity.toString());
-    formData.append('low_stock_level', lowStockLevel.toString());
-    formData.append('description', description);
-    formData.append('parent_id', parentId.toString());
-    formData.append('is_stock_tracked', isStockTracked ? 'true' : 'false');
-    formData.append('show_on_website', showOnWebsite ? 'true' : 'false');
-    formData.append('is_active', isActive ? 'true' : 'false');
-
-    if (itemImagesUploadInput && itemImagesUploadInput.files.length > 0) {
-        for (let i = 0; i < itemImagesUploadInput.files.length; i++) {
-            formData.append('images', itemImagesUploadInput.files[i]);
-        }
-    }
-
-    let result;
+    isSaving = true;
     try {
+        const itemId = editItemIdInput.value;
+        const title = itemTitleInput.value.trim();
+        const sku = itemSkuInput.value.trim();
+        const priceText = itemPriceInput.value.trim();
+        const stockQuantity = parseInt(itemStockQuantityInput.value) || 0;
+        const lowStockLevel = parseInt(itemLowStockLevelInput.value) || -1;
+        const description = itemDescriptionInput.value.trim();
+        const parentId = parseInt(itemParentIdInput.value) || -1;
+        const isStockTracked = itemIsStockTrackedCheckbox.checked;
+        const showOnWebsite = itemShowOnWebsiteCheckbox.checked;
+        const isActive = itemIsActiveCheckbox.checked;
+
+        if (!title || !priceText) {
+            showToast('Title and Price are required for item.', 'error');
+            return null;
+        }
+        const price = parseFloat(priceText);
+        if (isNaN(price)) {
+            showToast('Price must be a valid number.', 'error');
+            return null;
+        }
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('sku', sku);
+        formData.append('price', price.toString());
+        formData.append('stock_quantity', stockQuantity.toString());
+        formData.append('low_stock_level', lowStockLevel.toString());
+        formData.append('description', description);
+        formData.append('parent_id', parentId.toString());
+        formData.append('is_stock_tracked', isStockTracked ? 'true' : 'false');
+        formData.append('show_on_website', showOnWebsite ? 'true' : 'false');
+        formData.append('is_active', isActive ? 'true' : 'false');
+
+        if (itemImagesUploadInput && itemImagesUploadInput.files.length > 0) {
+            for (let i = 0; i < itemImagesUploadInput.files.length; i++) {
+                formData.append('images', itemImagesUploadInput.files[i]);
+            }
+        }
+
+        let result;
         if (itemId) {
             result = await apiCall(`/items/${itemId}`, 'PUT', formData);
         } else {
             result = await apiCall('/items/', 'POST', formData);
         }
 
-        if (result && result.id) { // Check for a valid item object response
+        if (result && result.id) {
             showToast(itemId ? 'Item updated successfully!' : 'Item created successfully!', 'success');
             closeAddEditItemModal();
-            await preloadItems(); // Refresh itemsCache
-            // searchItems(); // Refresh search results if search was active - might be too broad, or could be conditional
-
+            await preloadItems();
             if (addToCartAfterSave && result.id && result.price !== null && result.price !== undefined && result.parent_id !== -2) {
                 await addItemToCart(result.id, result.price);
             } else if (addToCartAfterSave) {
@@ -637,18 +644,16 @@ export async function handleSaveItem(addToCartAfterSave = false) {
             }
             return result;
         } else {
-            // apiCall should show specific error from backend if result is null or error object
-            // If result is truthy but not an item object (e.g. {message: ...}), it's an unexpected success response
             console.error("Save item response was not a valid item object:", result);
             showToast(itemId ? 'Failed to update item. Unexpected server response.' : 'Failed to create item. Unexpected server response.', 'error');
             return null;
         }
     } catch (error) {
-        // This catch is redundant if apiCall handles all errors and returns null.
-        // However, keeping it for safety in case apiCall itself throws an unhandled exception.
         console.error('Error saving item:', error);
         showToast('Error saving item. Check console.', 'error');
         return null;
+    } finally {
+        isSaving = false;
     }
 }
 
