@@ -25,9 +25,8 @@ def login():
 
     # Extract credentials
     client_id = xero_credentials.get('client_id')
-    client_secret = xero_credentials.get('client_secret')
     redirect_uri = xero_credentials.get('redirect_uri')
-    scopes = xero_credentials.get('scopes', 'openid profile email accounting.transactions accounting.contacts')
+    scopes = xero_credentials.get('scopes', 'openid profile email accounting.transactions accounting.contacts offline_access')
     
     # Build authorization URL manually
     auth_url = "https://login.xero.com/identity/connect/authorize"
@@ -73,20 +72,6 @@ def callback():
     client_secret = xero_credentials.get('client_secret')
     redirect_uri = xero_credentials.get('redirect_uri')
     
-    # Create OAuth2Token with client_id and client_secret
-    oauth2_token = OAuth2Token(
-        client_id=client_id,
-        client_secret=client_secret
-    )
-    
-    # Configure API client
-    api_client = ApiClient(
-        Configuration(
-            debug=True,
-            oauth2_token=oauth2_token
-        )
-    )
-    
     # Exchange the code for a token
     token_url = "https://identity.xero.com/connect/token"
     token_data = {
@@ -97,86 +82,77 @@ def callback():
     
     try:
         # Exchange the authorization code for a token
-        try:
-            response = requests.post(
-                token_url,
-                data=token_data,
-                auth=(client_id, client_secret),
-                headers={'Content-Type': 'application/x-www-form-urlencoded'}
-            )
-            
-            if response.status_code != 200:
-                current_app.logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
-                return "Failed to exchange authorization code for token.", 500
-                
-            token = response.json()
-            current_app.logger.info("Successfully obtained token from Xero")
-            
-        except Exception as e:
-            current_app.logger.error(f"Error during token exchange: {e}")
-            # Fall back to dummy token for testing
-            token = {
-                'access_token': 'dummy_token',
-                'refresh_token': 'dummy_refresh_token',
-                'expires_in': 1800,
-                'token_type': 'Bearer',
-                'scope': ['openid', 'profile', 'email', 'accounting.transactions', 'accounting.contacts']
-            }
-            current_app.logger.warning("Using dummy token for testing")
+        response = requests.post(
+            token_url,
+            data=token_data,
+            auth=(client_id, client_secret),
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
         
-        # Try to get tenant ID
-        tenant_id = None
-        try:
-            # Create a new configuration with the token
-            config = Configuration(
-                debug=True,
-                oauth2_token=OAuth2Token(
-                    client_id=client_id,
-                    client_secret=client_secret,
-                    token=token
-                )
-            )
+        if response.status_code != 200:
+            current_app.logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+            return "Failed to exchange authorization code for token.", 500
             
-            # Create a new API client with this configuration
-            identity_api_client = ApiClient(config)
-            
-            # Get the tenant connections
-            identity_api = IdentityApi(identity_api_client)
-            connections = identity_api.get_connections()
-            
-            if connections:
-                tenant_id = connections[0].tenant_id
-                current_app.logger.info(f"Successfully retrieved tenant ID: {tenant_id}")
-            else:
-                current_app.logger.warning("No Xero tenants connected")
-                tenant_id = "dummy_tenant_id"
-                
-        except Exception as e:
-            current_app.logger.error(f"Error retrieving tenant ID: {e}")
-            tenant_id = "dummy_tenant_id"
-            current_app.logger.warning("Using dummy tenant ID for testing")
-        
-        # Store the token and tenant ID
-        token_data = {
-            'token': token,
-            'tenant_id': tenant_id
-        }
-        
-        # Save the token and tenant ID
-        try:
-            with open(os.path.join(os.path.dirname(current_app.root_path), 'xero_token.json'), 'w') as f:
-                json.dump(token_data, f)
-            current_app.logger.info("Xero token and tenant ID saved successfully.")
-        except Exception as e:
-            current_app.logger.error(f"Error saving Xero token: {e}")
-            return "Error saving Xero token.", 500
-    
-        # Redirect to the home page or a success page
-        return redirect(url_for('serve_index'))
-    
-    except OpenApiException as e:
-        current_app.logger.error(f"Xero API error during token exchange: {e}")
-        return "Error during Xero authentication.", 500
+        token = response.json()
+        current_app.logger.info("Successfully obtained token from Xero")
+
     except Exception as e:
-        current_app.logger.error(f"Unexpected error during Xero authentication: {e}")
-        return "Unexpected error during authentication.", 500
+        current_app.logger.error(f"Error during token exchange: {e}")
+        return "Failed to exchange authorization code for token.", 500
+    
+    # Try to get tenant ID
+    tenant_id = None
+    try:
+        # Define getter and saver for the temporary ApiClient
+        def token_getter():
+            return token
+
+        def token_saver(new_token):
+            nonlocal token
+            token = new_token
+
+        # Create a new API client with the token to get the tenant ID
+        config = Configuration(
+            oauth2_token=OAuth2Token(client_id=client_id, client_secret=client_secret)
+        )
+        api_client_for_identity = ApiClient(
+            configuration=config,
+            oauth2_token_getter=token_getter,
+            oauth2_token_saver=token_saver
+        )
+        
+        # Get the tenant connections
+        identity_api = IdentityApi(api_client_for_identity)
+        connections = identity_api.get_connections()
+        
+        if connections and len(connections) > 0:
+            tenant_id = connections[0].tenant_id
+            current_app.logger.info(f"Successfully retrieved tenant ID: {tenant_id}")
+        else:
+            current_app.logger.warning("No Xero tenants connected for this user.")
+            return "No Xero tenants found for your account.", 400
+            
+    except OpenApiException as e:
+        current_app.logger.error(f"Error retrieving tenant ID from Xero: {e}")
+        return "Error communicating with Xero to get tenant ID.", 500
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error retrieving tenant ID: {e}")
+        return "An unexpected error occurred while getting the tenant ID.", 500
+    
+    # Store the token and tenant ID
+    token_data = {
+        'token': token,
+        'tenant_id': tenant_id
+    }
+    
+    # Save the token and tenant ID
+    try:
+        with open(os.path.join(os.path.dirname(current_app.root_path), 'xero_token.json'), 'w') as f:
+            json.dump(token_data, f)
+        current_app.logger.info("Xero token and tenant ID saved successfully.")
+    except Exception as e:
+        current_app.logger.error(f"Error saving Xero token: {e}")
+        return "Error saving Xero token.", 500
+
+    # Redirect to the home page or a success page
+    return redirect(url_for('serve_index')) 
