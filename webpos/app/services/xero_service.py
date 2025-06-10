@@ -5,7 +5,7 @@ from xero_python.api_client.configuration import Configuration
 from xero_python.api_client.oauth2 import OAuth2Token
 from xero_python.exceptions import OpenApiException
 from xero_python.identity import IdentityApi
-from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Payments, Account, LineAmountTypes
+from xero_python.accounting import AccountingApi, Contact, Contacts, Invoice, Invoices, LineItem, Payment, Payments, Account, LineAmountTypes
 import json
 import os
 from flask import current_app
@@ -171,7 +171,8 @@ class XeroService:
             
             logging.debug(f"Creating new contact in Xero: {contact_name}")
             new_contact_obj = Contact(name=contact_name)
-            created_contacts = accounting_api.create_contacts(xero_tenant_id, contacts=[new_contact_obj])
+            contacts_container = Contacts(contacts=[new_contact_obj])
+            created_contacts = accounting_api.create_contacts(xero_tenant_id, contacts=contacts_container)
             return created_contacts.contacts[0], None
 
         except OpenApiException as e:
