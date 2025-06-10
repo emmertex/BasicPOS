@@ -5,7 +5,7 @@ from decimal import Decimal
 from flask import current_app
 from app.services.sale_service import SaleService
 from app.services.xero_service import XeroService
-from app.utils.serializers import payment_to_dict
+from app.utils.serializers import payment_to_dict, sale_to_dict
 
 class PaymentService:
     ALLOWED_PAYMENT_TYPES = ['Cash', 'Cheque', 'EFTPOS']
@@ -50,13 +50,11 @@ class PaymentService:
             # Try to send to Xero, but continue even if it fails
             try:
                 xero_service = XeroService()
-                payment_dict = payment_to_dict(new_payment)
-                xero_payment, error = xero_service.create_payment(sale_id, payment_dict)
+                sale_details = sale_to_dict(sale)
+                payment_details = payment_to_dict(new_payment)
+                xero_payment, error = xero_service.create_invoice_and_payment(sale_details, payment_details)
                 if error:
-                    # Using current_app logger is better in service modules
-                    # Make sure to have `from flask import current_app` at the top of your service file
-                    # Use Flask's logger instead of print
-                    current_app.logger.error(f"Failed to create Xero payment: {error}")
+                    current_app.logger.error(f"Failed to create Xero invoice and payment: {error}")
             except Exception as xero_error:
                 # Log the error but continue with local processing
                 current_app.logger.error(f"Error sending payment to Xero: {xero_error}")

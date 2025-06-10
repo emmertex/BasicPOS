@@ -1,10 +1,11 @@
 import logging
+from datetime import datetime
 from xero_python.api_client import ApiClient
 from xero_python.api_client.configuration import Configuration
 from xero_python.api_client.oauth2 import OAuth2Token
 from xero_python.exceptions import OpenApiException
 from xero_python.identity import IdentityApi
-from xero_python.accounting import AccountingApi, Contact, Invoice, LineItem, Payment, Account
+from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Account
 import json
 import os
 from flask import current_app
@@ -75,7 +76,7 @@ class XeroService:
             logging.warning("No tenant ID found in token file. Using dummy tenant ID for testing.")
             return "dummy_tenant_id"
 
-    def create_invoice(self, sale_details):
+    def create_invoice(self, sale_details, contact):
         if not self.api_client:
             logging.error("Xero API client not initialized.")
             return None, "Xero API client not initialized."
@@ -92,32 +93,48 @@ class XeroService:
         logging.debug(f"Creating Xero invoice for sale ID: {sale_details['id']}")
         
         try:
-            contact = Contact(name=sale_details['customer']['name'] if sale_details.get('customer') else 'Walk-in Customer')
-            
             line_items = []
             for item in sale_details['sale_items']:
+                item_title = item.get('item', {}).get('title')
+                if not item_title:
+                    logging.warning(f"Skipping item in Xero invoice for sale {sale_details['id']} due to missing title: {item}")
+                    continue
+
                 line_item = LineItem(
-                    description=item['item']['name'],
+                    description=item_title,
                     quantity=item['quantity'],
                     unit_amount=item['sale_price'],
                     account_code=current_app.config['XERO_SALES_ACCOUNT']
                 )
                 line_items.append(line_item)
 
+            if not line_items:
+                logging.warning(f"No valid line items found for Xero invoice for sale {sale_details['id']}. Creating a single summary line.")
+                total_amount = sale_details.get('total_price', 0)
+                line_item = LineItem(
+                    description=f"Sale #{sale_details['id']}",
+                    quantity=1,
+                    unit_amount=total_amount,
+                    account_code=current_app.config['XERO_SALES_ACCOUNT']
+                )
+                line_items.append(line_item)
+
+            invoice_date = datetime.fromisoformat(sale_details['created_at']) if sale_details.get('created_at') else datetime.now()
+            
             invoice = Invoice(
                 type='ACCREC',
                 contact=contact,
                 line_items=line_items,
-                date=sale_details['created_at'],
-                due_date=sale_details['created_at'],
+                date=invoice_date,
+                due_date=invoice_date,
                 reference=f"Sale #{sale_details['id']}",
                 status='AUTHORISED'
             )
 
-            invoices = accounting_api.create_invoices(xero_tenant_id, invoices=[invoice])
-            created_invoice = invoices.invoices[0]
-            logging.debug(f"Successfully created Xero invoice: {created_invoice.invoice_id}")
-            return created_invoice, None
+            invoices_container = Invoices(invoices=[invoice])
+            created_invoice = accounting_api.create_invoices(xero_tenant_id, invoices=invoices_container)
+            logging.debug(f"Successfully created Xero invoice: {created_invoice.invoices[0].invoice_id}")
+            return created_invoice.invoices[0], None
 
         except OpenApiException as e:
             logging.error(f"Error creating Xero invoice: {e}")
@@ -129,6 +146,85 @@ class XeroService:
             # Continue with local processing despite Xero error
             logging.info("Continuing with local processing despite Xero error")
             return {"invoice_id": "local-only"}, None
+
+    def find_or_create_contact(self, customer_details, accounting_api, xero_tenant_id):
+        # Default to walk-in customer
+        contact_name = "Walk-in Customer"
+        if customer_details and customer_details.get("name"):
+            contact_name = customer_details["name"]
+        
+        try:
+            where_clause = f'Name=="{contact_name}"'
+            existing_contacts = accounting_api.get_contacts(xero_tenant_id, where=where_clause).contacts
+            if existing_contacts:
+                logging.debug(f"Found existing contact in Xero: {contact_name}")
+                return existing_contacts[0], None
+            
+            logging.debug(f"Creating new contact in Xero: {contact_name}")
+            new_contact_obj = Contact(name=contact_name)
+            created_contacts = accounting_api.create_contacts(xero_tenant_id, contacts=[new_contact_obj])
+            return created_contacts.contacts[0], None
+
+        except OpenApiException as e:
+            logging.error(f"Error finding or creating Xero contact: {e}")
+            return None, str(e)
+
+    def find_or_create_invoice(self, sale_details, contact, accounting_api, xero_tenant_id):
+        reference = f"Sale #{sale_details['id']}"
+        try:
+            where_clause = f'Reference=="{reference}"'
+            invoices = accounting_api.get_invoices(xero_tenant_id, where=where_clause).invoices
+            if invoices:
+                logging.debug(f"Found existing invoice in Xero: {reference}")
+                return invoices[0], None
+            else:
+                logging.debug(f"Creating new invoice in Xero: {reference}")
+                return self.create_invoice(sale_details, contact)
+        except OpenApiException as e:
+            logging.error(f"Error finding or creating Xero invoice: {e}")
+            return None, str(e)
+
+    def create_invoice_and_payment(self, sale_details, payment_details):
+        if not self.api_client:
+            return None, "Xero API client not initialized."
+
+        token = self._get_token()
+        if not token:
+            return None, "Xero token not available."
+            
+        xero_tenant_id = self._get_tenant_id()
+        accounting_api = AccountingApi(self.api_client)
+        
+        # 1. Find or create contact
+        contact, error = self.find_or_create_contact(sale_details.get('customer'), accounting_api, xero_tenant_id)
+        if error:
+            return None, f"Failed to process contact in Xero: {error}"
+        if not contact:
+             return None, "Failed to find or create a Xero contact."
+
+        # 2. Find or create invoice
+        invoice, error = self.find_or_create_invoice(sale_details, contact, accounting_api, xero_tenant_id)
+        if error:
+            return None, f"Failed to process invoice in Xero: {error}"
+        
+        if not hasattr(invoice, 'invoice_id'):
+            return None, f"Failed to create a valid invoice in Xero. Received: {invoice}"
+        
+        # 3. Create payment
+        payment = Payment(
+            invoice=Invoice(invoice_id=invoice.invoice_id),
+            account=Account(code=current_app.config['XERO_BANK_ACCOUNT']),
+            amount=payment_details['amount'],
+            date=payment_details['payment_date']
+        )
+        
+        try:
+            created_payments = accounting_api.create_payments(xero_tenant_id, payments=[payment])
+            logging.debug(f"Successfully created Xero payment: {created_payments.payments[0].payment_id}")
+            return created_payments.payments[0], None
+        except OpenApiException as e:
+            logging.error(f"Error creating Xero payment: {e}")
+            return None, str(e)
 
     def create_payment(self, sale_id, payment_details):
         if not self.api_client:
