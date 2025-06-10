@@ -22,3 +22,4 @@ config.py
 *.tif
 config_web.py
 setup_database.py
+webpage/logs/
