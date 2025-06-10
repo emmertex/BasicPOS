@@ -45,8 +45,6 @@ class XeroService:
             self.api_client = None
 
     def _get_token(self):
-        # This is a placeholder for a real token management function.
-        # In a real app, you'd fetch a stored token and refresh it if necessary.
         logging.debug("Getting Xero token...")
         try:
             with open(os.path.join(os.path.dirname(__file__), '..', '..', 'xero_token.json')) as f:
@@ -55,11 +53,24 @@ class XeroService:
             # Check if the token data has the new structure with tenant_id
             if isinstance(token_data, dict) and 'token' in token_data:
                 self.tenant_id = token_data.get('tenant_id')
-                return token_data['token']
+                token = token_data['token']
             else:
                 # Legacy format - just the token
                 self.tenant_id = None
-                return token_data
+                token = token_data
+
+            # Check if token is expired or about to expire (within 5 minutes)
+            if isinstance(token, dict) and 'expires_at' in token:
+                expires_at = datetime.fromisoformat(token['expires_at'])
+                if expires_at <= datetime.now():
+                    logging.debug("Token expired, refreshing...")
+                    return self._refresh_token(token)
+                elif (expires_at - datetime.now()).total_seconds() < 300:  # 5 minutes
+                    logging.debug("Token about to expire, refreshing...")
+                    return self._refresh_token(token)
+            
+            return token
+
         except FileNotFoundError:
             logging.error("xero_token.json not found. Please authenticate with Xero first.")
             self.tenant_id = None
@@ -68,7 +79,35 @@ class XeroService:
             logging.error(f"Error reading Xero token: {e}")
             self.tenant_id = None
             return None
+
+    def _refresh_token(self, old_token):
+        """Refresh the OAuth2 token using the refresh token."""
+        try:
+            if not isinstance(old_token, dict) or 'refresh_token' not in old_token:
+                logging.error("No refresh token available")
+                return None
+
+            # Get new token using refresh token
+            new_token = self.api_client.oauth2_token.refresh_token(
+                refresh_token=old_token['refresh_token']
+            )
+
+            # Save the new token
+            token_data = {
+                'token': new_token,
+                'tenant_id': self.tenant_id
+            }
             
+            with open(os.path.join(os.path.dirname(__file__), '..', '..', 'xero_token.json'), 'w') as f:
+                json.dump(token_data, f)
+
+            logging.debug("Successfully refreshed Xero token")
+            return new_token
+
+        except Exception as e:
+            logging.error(f"Error refreshing Xero token: {e}")
+            return None
+
     def _get_tenant_id(self):
         # Get the tenant ID from the token file or use a default for testing
         if hasattr(self, 'tenant_id') and self.tenant_id:
