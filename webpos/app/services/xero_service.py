@@ -228,6 +228,8 @@ class XeroService:
             account_code = current_app.config['XERO_BANK_ACCOUNT_CASH']
         elif payment_type == 'EFTPOS':
             account_code = current_app.config['XERO_BANK_ACCOUNT_EFTPOS']
+        elif payment_type == 'Cheque':
+            account_code = current_app.config['XERO_BANK_ACCOUNT_CHEQUE']
         else:
             account_code = current_app.config['XERO_BANK_ACCOUNT']
 
