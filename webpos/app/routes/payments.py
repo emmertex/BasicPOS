@@ -1,20 +1,9 @@
 from flask import Blueprint, request, jsonify
 from app.services.payment_service import PaymentService
 from app.services.sale_service import SaleService # To get updated sale
-from app.routes.sales import sale_to_dict # To serialize the updated sale
+from app.utils.serializers import sale_to_dict, payment_to_dict # To serialize the updated sale
 
 bp = Blueprint('payments', __name__)
-
-def payment_to_dict(payment):
-    if not payment:
-        return None
-    return {
-        'id': payment.id,
-        'sale_id': payment.sale_id,
-        'payment_type': payment.payment_type,
-        'amount': float(payment.amount) if payment.amount is not None else None,
-        'payment_date': payment.payment_date.isoformat() if payment.payment_date else None
-    }
 
 @bp.route('/', methods=['POST'])
 def record_payment_route():

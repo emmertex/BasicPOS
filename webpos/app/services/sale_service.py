@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN # Import ROUND_HALF_UP and ROUND_DOWN
 from flask import current_app # Added for config access
 from app.services.xero_service import XeroService
-from app.routes.sales import sale_to_dict
+from app.utils.serializers import sale_to_dict
 
 class SaleService:
     @staticmethod
