@@ -5,10 +5,11 @@ from xero_python.api_client.configuration import Configuration
 from xero_python.api_client.oauth2 import OAuth2Token
 from xero_python.exceptions import OpenApiException
 from xero_python.identity import IdentityApi
-from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Account
+from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Payments, Account
 import json
 import os
 from flask import current_app
+from decimal import Decimal
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -93,28 +94,35 @@ class XeroService:
         logging.debug(f"Creating Xero invoice for sale ID: {sale_details['id']}")
         
         try:
+            gst_rate = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10')) / Decimal('100')
+            gst_divisor = Decimal('1') + gst_rate
+
             line_items = []
             for item in sale_details['sale_items']:
                 item_title = item.get('item', {}).get('title')
                 if not item_title:
                     logging.warning(f"Skipping item in Xero invoice for sale {sale_details['id']} due to missing title: {item}")
                     continue
+                
+                price_inclusive = Decimal(str(item.get('sale_price', 0)))
+                price_exclusive = price_inclusive / gst_divisor
 
                 line_item = LineItem(
                     description=item_title,
                     quantity=item['quantity'],
-                    unit_amount=item['sale_price'],
+                    unit_amount=price_exclusive,
                     account_code=current_app.config['XERO_SALES_ACCOUNT']
                 )
                 line_items.append(line_item)
 
             if not line_items:
                 logging.warning(f"No valid line items found for Xero invoice for sale {sale_details['id']}. Creating a single summary line.")
-                total_amount = sale_details.get('total_price', 0)
+                total_amount_inclusive = Decimal(str(sale_details.get('final_grand_total', 0)))
+                total_amount_exclusive = total_amount_inclusive / gst_divisor
                 line_item = LineItem(
                     description=f"Sale #{sale_details['id']}",
                     quantity=1,
-                    unit_amount=total_amount,
+                    unit_amount=total_amount_exclusive,
                     account_code=current_app.config['XERO_SALES_ACCOUNT']
                 )
                 line_items.append(line_item)
@@ -128,7 +136,8 @@ class XeroService:
                 date=invoice_date,
                 due_date=invoice_date,
                 reference=f"Sale #{sale_details['id']}",
-                status='AUTHORISED'
+                status='AUTHORISED',
+                line_amount_types='Exclusive'
             )
 
             invoices_container = Invoices(invoices=[invoice])
@@ -211,15 +220,18 @@ class XeroService:
             return None, f"Failed to create a valid invoice in Xero. Received: {invoice}"
         
         # 3. Create payment
+        payment_date = datetime.fromisoformat(payment_details['payment_date']) if payment_details.get('payment_date') else datetime.now()
+        
         payment = Payment(
             invoice=Invoice(invoice_id=invoice.invoice_id),
             account=Account(code=current_app.config['XERO_BANK_ACCOUNT']),
             amount=payment_details['amount'],
-            date=payment_details['payment_date']
+            date=payment_date
         )
         
         try:
-            created_payments = accounting_api.create_payments(xero_tenant_id, payments=[payment])
+            payments_container = Payments(payments=[payment])
+            created_payments = accounting_api.create_payments(xero_tenant_id, payments=payments_container)
             logging.debug(f"Successfully created Xero payment: {created_payments.payments[0].payment_id}")
             return created_payments.payments[0], None
         except OpenApiException as e:
