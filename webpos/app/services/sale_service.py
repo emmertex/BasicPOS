@@ -28,12 +28,6 @@ class SaleService:
             )
             db.session.add(new_sale)
             db.session.commit()
-
-            xero_service = XeroService()
-            sale_dict = sale_to_dict(new_sale)
-            xero_invoice, error = xero_service.create_invoice(sale_dict)
-            if error:
-                current_app.logger.error(f"Failed to create Xero invoice: {error}")
             
             return new_sale, None
         except Exception as e:

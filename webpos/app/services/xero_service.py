@@ -5,7 +5,7 @@ from xero_python.api_client.configuration import Configuration
 from xero_python.api_client.oauth2 import OAuth2Token
 from xero_python.exceptions import OpenApiException
 from xero_python.identity import IdentityApi
-from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Payments, Account
+from xero_python.accounting import AccountingApi, Contact, Invoice, Invoices, LineItem, Payment, Payments, Account, LineAmountTypes
 import json
 import os
 from flask import current_app
@@ -137,11 +137,11 @@ class XeroService:
                 due_date=invoice_date,
                 reference=f"Sale #{sale_details['id']}",
                 status='AUTHORISED',
-                line_amount_types='Exclusive'
+                line_amount_types=LineAmountTypes.EXCLUSIVE
             )
 
             invoices_container = Invoices(invoices=[invoice])
-            created_invoice = accounting_api.create_invoices(xero_tenant_id, invoices=invoices_container)
+            created_invoice = accounting_api.create_invoices(xero_tenant_id, invoices=invoices_container, unitdp=4)
             logging.debug(f"Successfully created Xero invoice: {created_invoice.invoices[0].invoice_id}")
             return created_invoice.invoices[0], None
 
@@ -222,9 +222,17 @@ class XeroService:
         # 3. Create payment
         payment_date = datetime.fromisoformat(payment_details['payment_date']) if payment_details.get('payment_date') else datetime.now()
         
+        payment_type = payment_details.get('payment_type')
+        if payment_type == 'Cash':
+            account_code = current_app.config['XERO_BANK_ACCOUNT_CASH']
+        elif payment_type == 'EFTPOS':
+            account_code = current_app.config['XERO_BANK_ACCOUNT_EFTPOS']
+        else:
+            account_code = current_app.config['XERO_BANK_ACCOUNT']
+
         payment = Payment(
             invoice=Invoice(invoice_id=invoice.invoice_id),
-            account=Account(code=current_app.config['XERO_BANK_ACCOUNT']),
+            account=Account(code=account_code),
             amount=payment_details['amount'],
             date=payment_date
         )
