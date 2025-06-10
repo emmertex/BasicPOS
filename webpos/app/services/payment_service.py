@@ -3,6 +3,8 @@ from app.models.payment import Payment
 from app.models.sale import Sale
 from decimal import Decimal
 from app.services.sale_service import SaleService
+from app.services.xero_service import XeroService
+from app.routes.payments import payment_to_dict
 
 class PaymentService:
     ALLOWED_PAYMENT_TYPES = ['Cash', 'Cheque', 'EFTPOS']
@@ -44,6 +46,15 @@ class PaymentService:
             db.session.add(new_payment)
             db.session.commit()
             
+            xero_service = XeroService()
+            payment_dict = payment_to_dict(new_payment)
+            xero_payment, error = xero_service.create_payment(sale_id, payment_dict)
+            if error:
+                # Using current_app logger is better in service modules
+                # Make sure to have `from flask import current_app` at the top of your service file
+                # For now, let's assume it's available or we'll just print
+                print(f"Failed to create Xero payment: {error}")
+
             # Check if sale is fully paid and update sale.status to 'Paid'
             updated_sale, status_message = SaleService.check_and_update_payment_status(sale_id)
             # status_message can be logged or returned if needed

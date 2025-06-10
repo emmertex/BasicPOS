@@ -6,6 +6,8 @@ from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN # Import ROUND_HALF_UP and ROUND_DOWN
 from flask import current_app # Added for config access
+from app.services.xero_service import XeroService
+from app.routes.sales import sale_to_dict
 
 class SaleService:
     @staticmethod
@@ -26,6 +28,13 @@ class SaleService:
             )
             db.session.add(new_sale)
             db.session.commit()
+
+            xero_service = XeroService()
+            sale_dict = sale_to_dict(new_sale)
+            xero_invoice, error = xero_service.create_invoice(sale_dict)
+            if error:
+                current_app.logger.error(f"Failed to create Xero invoice: {error}")
+            
             return new_sale, None
         except Exception as e:
             db.session.rollback()
