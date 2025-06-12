@@ -144,12 +144,11 @@ class XeroService:
                     continue
                 
                 price_inclusive = Decimal(str(item.get('sale_price', 0)))
-                price_exclusive = price_inclusive / gst_divisor
 
                 line_item = LineItem(
                     description=item_title,
                     quantity=item['quantity'],
-                    unit_amount=price_exclusive,
+                    unit_amount=price_inclusive,
                     account_code=current_app.config['XERO_SALES_ACCOUNT']
                 )
                 line_items.append(line_item)
@@ -176,7 +175,7 @@ class XeroService:
                 due_date=invoice_date,
                 reference=f"Sale #{sale_details['id']}",
                 status='AUTHORISED',
-                line_amount_types=LineAmountTypes.EXCLUSIVE
+                line_amount_types=LineAmountTypes.INCLUSIVE
             )
 
             invoices_container = Invoices(invoices=[invoice])
