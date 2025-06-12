@@ -2,7 +2,10 @@ from app import db
 from app.models.payment import Payment
 from app.models.sale import Sale
 from decimal import Decimal
+from flask import current_app
 from app.services.sale_service import SaleService
+from app.services.xero_service import XeroService
+from app.utils.serializers import payment_to_dict, sale_to_dict
 
 class PaymentService:
     ALLOWED_PAYMENT_TYPES = ['Cash', 'Cheque', 'EFTPOS']
@@ -44,6 +47,18 @@ class PaymentService:
             db.session.add(new_payment)
             db.session.commit()
             
+            # Try to send to Xero, but continue even if it fails
+            try:
+                xero_service = XeroService()
+                sale_details = sale_to_dict(sale)
+                payment_details = payment_to_dict(new_payment)
+                xero_payment, error = xero_service.create_invoice_and_payment(sale_details, payment_details)
+                if error:
+                    current_app.logger.error(f"Failed to create Xero invoice and payment: {error}")
+            except Exception as xero_error:
+                # Log the error but continue with local processing
+                current_app.logger.error(f"Error sending payment to Xero: {xero_error}")
+
             # Check if sale is fully paid and update sale.status to 'Paid'
             updated_sale, status_message = SaleService.check_and_update_payment_status(sale_id)
             # status_message can be logged or returned if needed

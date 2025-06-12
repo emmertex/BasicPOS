@@ -22,4 +22,6 @@ config.py
 *.tif
 config_web.py
 setup_database.py
+xero_credentials.json
+xero_token.json
 webpage/logs/

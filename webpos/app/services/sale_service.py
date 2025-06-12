@@ -6,6 +6,8 @@ from app.models.customer import Customer # Import if needed for validation
 from sqlalchemy.exc import IntegrityError
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN # Import ROUND_HALF_UP and ROUND_DOWN
 from flask import current_app # Added for config access
+from app.services.xero_service import XeroService
+from app.utils.serializers import sale_to_dict
 
 class SaleService:
     @staticmethod
@@ -26,6 +28,7 @@ class SaleService:
             )
             db.session.add(new_sale)
             db.session.commit()
+            
             return new_sale, None
         except Exception as e:
             db.session.rollback()
