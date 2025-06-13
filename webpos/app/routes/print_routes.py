@@ -65,7 +65,8 @@ def print_sale_document(sale_id):
         "invoice_payment_instructions": current_app.config.get('INVOICE_PAYMENT_INSTRUCTIONS', 'Please pay within 14 days. BSB: XXX-XXX Acc: XXXXXXXX Ref: Invoice #'),
         "quotation_terms": current_app.config.get('QUOTATION_TERMS_A4', 'This quotation is valid for 14 days. Prices are subject to change thereafter. All items subject to availability.'),
         "quotation_terms_short": current_app.config.get('QUOTATION_TERMS_RECEIPT', 'Quote valid 14 days.'),
-        "gst_rate_percentage": current_app.config.get('GST_RATE_PERCENTAGE', 10)
+        "gst_rate_percentage": current_app.config.get('GST_RATE_PERCENTAGE', 10),
+        "eftpos_fee_percentage_for_disclaimer": current_app.config.get('EFTPOS_FEE_PERCENTAGE', 2)
     }
 
     document_title = "Invoice" if doc_type == 'invoice' else "Quotation"
@@ -87,17 +88,23 @@ def print_sale_document(sale_id):
     total_line_item_discounts_calc = Decimal(total_line_item_discounts_calc).quantize(Decimal('0.01'))
 
     overall_discount_amount_applied_calc = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'))
-    # Calculate net amount (ex GST) from gross amount (inc GST)
-    net_subtotal_before_tax_calc = subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc
+    
+    # If it's a quote, the fee is not included in the total, even if it's been toggled on the sale
+    if document_title == 'Quotation':
+        transaction_fee_calc = Decimal('0.00')
+    else:
+        transaction_fee_calc = Decimal(sale.transaction_fee or '0.00').quantize(Decimal('0.01'))
+
+    net_subtotal_inc_tax_calc = (subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc)
+
     gst_rate_percentage = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10'))
-    gst_amount_calc = Decimal('0.00')
-    if net_subtotal_before_tax_calc > 0 and gst_rate_percentage > 0:
-        # Since prices are GST inclusive, we need to calculate GST portion by dividing by (1 + GST rate)
-        gst_divisor = Decimal('1') + (gst_rate_percentage / Decimal('100'))
-        gst_amount_calc = (net_subtotal_before_tax_calc - (net_subtotal_before_tax_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    gst_divisor = Decimal('1') + (gst_rate_percentage / Decimal('100'))
+    gst_from_subtotal = (net_subtotal_inc_tax_calc - (net_subtotal_inc_tax_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    gst_from_fee = (transaction_fee_calc - (transaction_fee_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    gst_amount_calc = gst_from_subtotal + gst_from_fee
 
-    final_grand_total_calc = net_subtotal_before_tax_calc
-
+    final_grand_total_calc = net_subtotal_inc_tax_calc + transaction_fee_calc
+    
     amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
     amount_paid_calc = Decimal(amount_paid_calc).quantize(Decimal('0.01'))
     amount_due_calc = final_grand_total_calc - amount_paid_calc
@@ -112,11 +119,13 @@ def print_sale_document(sale_id):
         # New financial breakdown for templates
         "subtotal_gross_original": subtotal_gross_original_calc,
         "total_line_item_discounts": total_line_item_discounts_calc,
-        "overall_discount_applied": overall_discount_amount_applied_calc, # sale.overall_discount_amount_applied is also available directly
-        "net_subtotal_final": net_subtotal_before_tax_calc,
+        "overall_discount_applied": overall_discount_amount_applied_calc,
+        "net_subtotal_final": net_subtotal_inc_tax_calc,
         "gst_total": gst_amount_calc,
+        "gst_rate_percentage": gst_rate_percentage,
+        "eftpos_fee_amount": transaction_fee_calc,
         "grand_total_final": final_grand_total_calc,
-        "total_paid": amount_paid_calc,
+        "amount_paid_total": amount_paid_calc,
         "amount_due_final": amount_due_calc,
 
         **company_details
@@ -168,7 +177,8 @@ def email_sale_document(sale_id):
             "company_footer_message": current_app.config.get('COMPANY_FOOTER_A4', 'Thank you for your business!'),
             "invoice_payment_instructions": current_app.config.get('INVOICE_PAYMENT_INSTRUCTIONS', 'Please pay within 14 days. BSB: XXX-XXX Acc: XXXXXXXX Ref: Invoice #'),
             "quotation_terms": current_app.config.get('QUOTATION_TERMS_A4', 'This quotation is valid for 14 days. Prices are subject to change thereafter. All items subject to availability.'),
-            "gst_rate_percentage": current_app.config.get('GST_RATE_PERCENTAGE', 10)
+            "gst_rate_percentage": current_app.config.get('GST_RATE_PERCENTAGE', 10),
+            "eftpos_fee_percentage_for_disclaimer": current_app.config.get('EFTPOS_FEE_PERCENTAGE', 2)
         }
         document_title = "Invoice" if doc_type == 'invoice' else "Quotation"
         generation_date = datetime.now().strftime('%d %B %Y')
@@ -181,16 +191,22 @@ def email_sale_document(sale_id):
         total_line_item_discounts_calc = Decimal(total_line_item_discounts_calc).quantize(Decimal('0.01'))
         overall_discount_amount_applied_calc = Decimal(sale.overall_discount_amount_applied or '0.00').quantize(Decimal('0.01'))
         # Calculate net amount (ex GST) from gross amount (inc GST)
-        net_subtotal_before_tax_calc = subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc
         gst_rate_percentage = Decimal(current_app.config.get('GST_RATE_PERCENTAGE', '10'))
-        gst_amount_calc = Decimal('0.00')
-        if net_subtotal_before_tax_calc > 0 and gst_rate_percentage > 0:
-            # Since prices are GST inclusive, we need to calculate GST portion by dividing by (1 + GST rate)
-            gst_divisor = Decimal('1') + (gst_rate_percentage / Decimal('100'))
-            gst_amount_calc = (net_subtotal_before_tax_calc - (net_subtotal_before_tax_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        gst_divisor = Decimal('1') + (gst_rate_percentage / Decimal('100'))
+        net_subtotal_inc_tax_calc = (subtotal_gross_original_calc - total_line_item_discounts_calc - overall_discount_amount_applied_calc)
+        
+        # If it's a quote, the fee is not included in the total, even if it's been toggled on the sale
+        if document_title == 'Quotation':
+            transaction_fee_calc = Decimal('0.00')
+        else:
+            transaction_fee_calc = Decimal(sale.transaction_fee or '0.00').quantize(Decimal('0.01'))
 
-        final_grand_total_calc = net_subtotal_before_tax_calc
+        gst_from_subtotal = (net_subtotal_inc_tax_calc - (net_subtotal_inc_tax_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        gst_from_fee = (transaction_fee_calc - (transaction_fee_calc / gst_divisor)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        gst_amount_calc = gst_from_subtotal + gst_from_fee
 
+        final_grand_total_calc = net_subtotal_inc_tax_calc + transaction_fee_calc
+        
         amount_paid_calc = sum(p.amount for p in sale.payments if p.amount is not None)
         amount_paid_calc = Decimal(amount_paid_calc).quantize(Decimal('0.01'))
         amount_due_calc = final_grand_total_calc - amount_paid_calc
@@ -204,10 +220,12 @@ def email_sale_document(sale_id):
             "subtotal_gross_original": subtotal_gross_original_calc,
             "total_line_item_discounts": total_line_item_discounts_calc,
             "overall_discount_applied": overall_discount_amount_applied_calc,
-            "net_subtotal_final": net_subtotal_before_tax_calc,
+            "net_subtotal_final": net_subtotal_inc_tax_calc,
             "gst_total": gst_amount_calc,
+            "gst_rate_percentage": gst_rate_percentage,
+            "eftpos_fee_amount": transaction_fee_calc,
             "grand_total_final": final_grand_total_calc,
-            "total_paid": amount_paid_calc,
+            "amount_paid_total": amount_paid_calc,
             "amount_due_final": amount_due_calc,
             **company_details
         }

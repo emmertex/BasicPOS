@@ -32,7 +32,8 @@ class Config:
     INVOICE_PAYMENT_INSTRUCTIONS = "
     QUOTATION_TERMS_A4 = "
     QUOTATION_TERMS_RECEIPT = "
-    GST_RATE_PERCENTAGE = 10 
+    GST_RATE_PERCENTAGE = 10 # 10% GST
+    EFTPOS_FEE_PERCENTAGE = 2 # 2% EFTPOS fee
 
     # Email (SMTP) Configuration for Flask-Mail
     MAIL_SERVER = os.environ.get('MAIL_SERVER') or 'your_smtp_server'

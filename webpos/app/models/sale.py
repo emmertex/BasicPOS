@@ -17,6 +17,7 @@ class Sale(db.Model):
     )
     overall_discount_value = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
     overall_discount_amount_applied = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
+    transaction_fee = db.Column(db.Numeric(10, 2), default=0.00, nullable=False)
 
     created_at = db.Column(db.TIMESTAMP, server_default=func.now())
     updated_at = db.Column(db.TIMESTAMP, server_default=func.now(), onupdate=func.now())

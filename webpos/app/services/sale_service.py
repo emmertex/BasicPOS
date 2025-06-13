@@ -509,4 +509,46 @@ class SaleService:
             db.session.rollback()
             return None, str(e)
 
+    @staticmethod
+    def toggle_eftpos_fee(sale_id, is_enabled):
+        sale = Sale.query.get(sale_id)
+        if not sale:
+            return None, "Sale not found."
+
+        if sale.status in ['Paid', 'Void']:
+            return None, f"Cannot modify fee on a sale with status '{sale.status}'."
+
+        if is_enabled:
+            # Recalculate the total on which the fee is based
+            subtotal_gross = sum(
+                (si.price_at_sale * si.quantity) for si in sale.sale_items if si.price_at_sale is not None and si.quantity is not None
+            )
+            total_line_item_discounts = sum(
+                ((si.price_at_sale - si.sale_price) * si.quantity) 
+                for si in sale.sale_items 
+                if si.price_at_sale is not None and si.sale_price is not None and si.quantity is not None
+            )
+            overall_discount = sale.overall_discount_amount_applied or Decimal('0.00')
+            
+            # This is the GST-inclusive subtotal after all discounts
+            net_subtotal_inc_tax = subtotal_gross - total_line_item_discounts - overall_discount
+
+            eftpos_fee_percentage = Decimal(current_app.config.get('EFTPOS_FEE_PERCENTAGE', '2'))
+            
+            # The final, GST-inclusive fee is a straight percentage of the GST-inclusive subtotal.
+            fee_inc_gst = (net_subtotal_inc_tax * eftpos_fee_percentage / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            
+            sale.transaction_fee = max(Decimal('0.00'), fee_inc_gst)
+        else:
+            sale.transaction_fee = Decimal('0.00')
+
+        try:
+            db.session.commit()
+            SaleService.check_and_update_payment_status(sale_id)
+            return sale, None
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error toggling EFTPOS fee for Sale ID {sale_id}: {e}")
+            return None, f"Error updating EFTPOS fee: {str(e)}"
+
     # More methods will be added: park_sale, record_payment etc. 

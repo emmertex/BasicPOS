@@ -218,15 +218,22 @@
                             <span style="text-align: right;">-<span id="cart-overall-cart-discount-value">0.00</span></span>
                         </p>
                         <p id="cart-net-subtotal-final-line" style="display: flex; justify-content: space-between;">
-                            <span style="text-align: left;">Net Subtotal:</span>
+                            <span style="text-align: left;">Net Subtotal (inc GST):</span>
                             <span id="cart-net-subtotal-final-value" style="text-align: right;">0.00</span>
                         </p>
+                        <p id="cart-eftpos-fee-line" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="text-align: left;">EFTPOS Fee (inc GST):</span>
+                            <span style="text-align: right; display: flex; align-items: center; gap: 10px;">
+                                 <span id="cart-eftpos-fee-value" style="font-weight: bold;">0.00</span>
+                                 <button id="eftpos-fee-toggle" type="button" style="padding: 2px 8px; min-width: 40px;" aria-pressed="true">On</button>
+                            </span>
+                        </p>
                         <p id="cart-gst-final-line" style="display: flex; justify-content: space-between;">
-                            <span style="text-align: left;">GST:</span>
+                            <span style="text-align: left;">GST (included):</span>
                             <span id="cart-gst-final-value" style="text-align: right;">0.00</span>
                         </p>
                         <p id="cart-total-final-line" style="display: flex; justify-content: space-between; font-weight: bold; border-top: 1px solid #ccc; padding-top: 5px; margin-top:5px;">
-                            <span style="text-align: left;">TOTAL:</span>
+                            <span style="text-align: left;">Total (inc GST):</span>
                             <span id="cart-total-final-value" style="text-align: right;">0.00</span>
                         </p>
                     </div>
@@ -256,7 +263,7 @@
                         <button id="set-quote-status-button" class="btn btn-warning" style="flex-basis: 48%;">Set as Quote</button>
                     </div>
                     <div class="cart-action-row" style="display: flex; justify-content: space-between;">
-                        <button id="finalize-sale-button" class="btn btn-primary" style="flex-basis: 48%;">Finalize & Pay</button>
+                        <button id="finalize-sale-button" class="btn btn-primary" style="flex-basis: 48%;">Finalise & Pay</button>
                         <button id="void-sale-button" class="btn btn-danger" style="flex-basis: 48%;">Void Sale</button>
                     </div>
                 </div>
@@ -271,14 +278,17 @@
 
     <!-- Payment Modal -->
     <div id="paymentModal" class="modal" style="display: none;">
-        <div class="modal-content">
+        <div class="modal-content" style="text-align: center;">
             <span id="close-payment-modal-button" class="close-button">&times;</span>
-            <h2>Process Payment / Finalize Sale</h2>
-            <p>Total Sale Amount: <span id="payment-modal-total-amount">0.00</span></p>
+            <h2>Process Payment / Finalise Sale</h2>
+            <div style="margin-bottom: 10px;">
+                <div style="font-size: 12pt; color: #ff0000; margin-bottom: 5px;">Total Remaining:</div>
+                <div id="payment-modal-total-amount" style="font-size: 24pt; font-weight: bold;">0.00</div>
+            </div>
             <input type="hidden" id="paymentModalSaleId">
             <div>
-                <label for="paymentAmount">Amount to Pay:</label>
-                <input type="number" id="paymentAmount" step="0.01" required>
+                <!-- <label for="paymentAmount">Amount to Pay:</label> -->
+                <input type="number" id="paymentAmount" step="0.01" required style="font-size: 40pt; height: auto; text-align: center; width: 40%; box-sizing: border-box;">
             </div>
             <div class="payment-method-buttons" style="margin-top: 15px; margin-bottom: 15px;"> 
                 <button id="payCashButton" type="button" class="btn btn-success">Pay Cash</button>

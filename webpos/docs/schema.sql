@@ -54,6 +54,7 @@ CREATE TABLE Sales (
     overall_discount_type ENUM('none', 'percentage', 'fixed', 'target_total') DEFAULT 'none',
     overall_discount_value DECIMAL(10, 2) DEFAULT 0.00,
     overall_discount_amount_applied DECIMAL(10, 2) DEFAULT 0.00,
+    transaction_fee DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     customer_notes TEXT,

@@ -171,3 +171,19 @@ def add_payment_to_sale_route(sale_id):
     
     payment, error = SaleService.add_payment_to_sale(sale_id, data)
     return jsonify(sale_to_dict(sale)), 200 
+
+@bp.route('/<int:sale_id>/eftpos_fee', methods=['PUT'])
+def toggle_eftpos_fee_route(sale_id):
+    data = request.get_json()
+    if not data or 'enabled' not in data:
+        return jsonify({"error": "Missing 'enabled' flag in request."}), 400
+
+    is_enabled = data.get('enabled')
+
+    sale, error = SaleService.toggle_eftpos_fee(sale_id, is_enabled)
+
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        return jsonify({"error": error}), status_code
+    
+    return jsonify(sale_to_dict(sale)), 200 

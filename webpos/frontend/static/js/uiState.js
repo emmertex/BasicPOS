@@ -5,7 +5,8 @@ export const state = {
     quickAddItemsCache: [], // Cache for currently loaded quick add items
     isQuickAddEditMode: false,
     draggedQAI: null, // To store the element being dragged
-    currentQuickAddPage: 1
+    currentQuickAddPage: 1,
+    eftposFeeEnabled: true // Track if EFTPOS fee is enabled (default ON)
 }; 
 
 export function setState(key, value) {

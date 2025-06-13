@@ -1,7 +1,7 @@
 import { apiCall } from './apiService.js';
 import { showToast } from './toastService.js';
 import { state, setState } from './uiState.js'; // Assuming setState might be needed for currentSale
-import { loadSaleIntoCart, updateCartDisplay } from './cart.js'; // For updating cart after payment
+import { loadSaleIntoCart, updateCartDisplay, isEftposFeeEnabled } from './cart.js'; // For updating cart after payment
 import { openPrintOptionsModal } from './printService.js';
 import { loadParkedSales } from './salesService.js'; // Import loadParkedSales
 
@@ -57,15 +57,25 @@ export function openPaymentModal(saleToProcess) {
     }
 
     paymentModalSaleIdInput.value = saleToProcess.id;
-    if(paymentModalTotalAmountSpan) paymentModalTotalAmountSpan.textContent = saleToProcess.sale_total !== undefined ? saleToProcess.sale_total.toFixed(2) : '0.00';
+    if(paymentModalTotalAmountSpan) paymentModalTotalAmountSpan.textContent = saleToProcess.final_grand_total !== undefined ? saleToProcess.final_grand_total.toFixed(2) : '0.00';
     paymentAmountInput.value = saleToProcess.amount_due.toFixed(2);
     paymentModal.style.display = 'block';
 
-    // Show/hide invoice button based on sale status
-    if (saleToProcess.status === 'Open' || saleToProcess.status === 'Quote') {
-        invoiceRemainingButton.style.display = 'inline-block';
+    // Show/hide payment buttons based on EFTPOS fee toggle
+    const canInvoice = saleToProcess.status === 'Open' || saleToProcess.status === 'Quote';
+
+    if (isEftposFeeEnabled()) {
+        if (payEftposButton) payEftposButton.style.display = 'inline-block';
+        if (payCashButton) payCashButton.style.display = 'none';
+        if (payChequeButton) payChequeButton.style.display = 'none';
+        if (invoiceRemainingButton) invoiceRemainingButton.style.display = 'none';
     } else {
-        invoiceRemainingButton.style.display = 'none';
+        if (payEftposButton) payEftposButton.style.display = 'none';
+        if (payCashButton) payCashButton.style.display = 'inline-block';
+        if (payChequeButton) payChequeButton.style.display = 'inline-block';
+        if (invoiceRemainingButton) {
+             invoiceRemainingButton.style.display = canInvoice ? 'inline-block' : 'none';
+        }
     }
 }
 

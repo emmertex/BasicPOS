@@ -6,14 +6,14 @@
     <style>
         /* Dymo 30321 Label (89mm x 38mm) */
         @page {
-            size: 89mm 38mm; /* Width x Height for landscape label */
+            size: 89mm 37mm; /* Width x Height for landscape label */
             margin: 0;
         }
         body {
             width: 89mm;
-            height: 38mm;
+            height: 37mm;
             margin: 0;
-            padding: 2mm; /* Reduced padding for smaller label */
+            /*padding: 1mm; /* Reduced padding for smaller label */
             box-sizing: border-box;
             font-family: Arial, sans-serif;
             font-size: 10pt;
@@ -53,7 +53,7 @@
         .item-title {
             font-size: 14pt;
             font-weight: bold;
-            margin-bottom: 1mm;
+            margin-bottom: none;
             word-break: break-word;
         }
         .item-sku {
@@ -64,7 +64,7 @@
             font-size: 32pt;
             font-weight: bold;
             color: #000;
-            margin-top: auto;
+            margin-top: none;
         }
 
         @media print {
@@ -78,9 +78,7 @@
         <div class="pane left-pane">
             <div class="item-title">{{ item.title | default('N/A') }}</div>
             <div class="item-sku">SKU: {{ item.sku | default('N/A') }}</div>
-            <div class="item-price">
-                ${{ "%.2f" | format(item.price if item.price is not none else 0) }}
-            </div>
+            <div class="item-price">${{ "%.2f" | format(item.price if item.price is not none else 0) }}</div>
         </div>
         <div class="pane right-pane">
             {% if item.primary_photo_url %}

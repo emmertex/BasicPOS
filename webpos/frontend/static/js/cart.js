@@ -58,6 +58,11 @@ let saveEditSaleItemButton;
 let closeEditSaleItemModalButton;
 let currentEditingSaleItemOriginalPrice = 0; // to store the original price for calculations
 
+// EFTPOS Fee UI Elements
+const eftposFeeLine = document.getElementById('cart-eftpos-fee-line');
+const eftposFeeValueSpan = document.getElementById('cart-eftpos-fee-value');
+const eftposFeeToggleBtn = document.getElementById('eftpos-fee-toggle');
+
 // Call this function in app.js during DOMContentLoaded if not already initializing cart services
 export function initCartService() {
     // Initialize existing cart event listeners if any are added here later
@@ -106,6 +111,11 @@ export function initCartService() {
     // Add event listeners for overall discount controls
     if (applyOverallDiscountBtn) {
         applyOverallDiscountBtn.addEventListener('click', () => handleApplyOverallDiscount());
+    }
+
+    // EFTPOS Fee event listeners
+    if (eftposFeeToggleBtn) {
+        eftposFeeToggleBtn.addEventListener('click', () => handleToggleEftposFee());
     }
 }
 
@@ -511,13 +521,15 @@ export function updateCartDisplay() {
         if (overallDiscountTypeSelect) overallDiscountTypeSelect.disabled = !canEditDiscount;
         if (overallDiscountValueInput) overallDiscountValueInput.disabled = !canEditDiscount;
         if (applyOverallDiscountBtn) applyOverallDiscountBtn.disabled = !canEditDiscount;
+        if (eftposFeeToggleBtn) eftposFeeToggleBtn.disabled = !canEditDiscount;
 
         // Populate new total breakdown spans and manage visibility
         const subtotalGross = state.currentSale.subtotal_gross_original || 0;
         const itemDiscounts = state.currentSale.total_line_item_discounts || 0;
         const overallDiscount = state.currentSale.overall_discount_amount_applied || 0;
-        const netSubtotal = state.currentSale.net_subtotal_before_tax || 0;
+        const netSubtotal = state.currentSale.net_subtotal_inc_tax || 0;
         const gstAmount = state.currentSale.gst_amount || 0;
+        const transactionFee = state.currentSale.transaction_fee || 0;
         const finalTotal = state.currentSale.final_grand_total || 0;
         const amountDue = state.currentSale.amount_due || 0;
 
@@ -526,9 +538,18 @@ export function updateCartDisplay() {
         if (cartOverallCartDiscountValueSpan) cartOverallCartDiscountValueSpan.textContent = overallDiscount.toFixed(2);
         if (cartNetSubtotalFinalValueSpan) cartNetSubtotalFinalValueSpan.textContent = netSubtotal.toFixed(2);
         if (cartGstFinalValueSpan) cartGstFinalValueSpan.textContent = gstAmount.toFixed(2);
-        if (cartTotalFinalValueSpan) cartTotalFinalValueSpan.textContent = finalTotal.toFixed(2); // Updated from cartTotalSpan
+
+        // EFTPOS Fee display
+        if (eftposFeeLine) eftposFeeLine.style.display = 'flex';
+        if (eftposFeeValueSpan) eftposFeeValueSpan.textContent = transactionFee.toFixed(2);
+        if (eftposFeeToggleBtn) {
+            const isEnabled = transactionFee > 0;
+            eftposFeeToggleBtn.textContent = isEnabled ? 'On' : 'Off';
+            eftposFeeToggleBtn.setAttribute('aria-pressed', isEnabled ? 'true' : 'false');
+        }
+
+        if (cartTotalFinalValueSpan) cartTotalFinalValueSpan.textContent = finalTotal.toFixed(2);
         if (cartAmountDueSpan) cartAmountDueSpan.textContent = amountDue.toFixed(2);
-        if (cartSaleStatusSpan) cartSaleStatusSpan.textContent = `${state.currentSale.status} (ID: ${state.currentSale.id})`;
 
         // Conditional visibility for total lines
         if (cartSubtotalGrossOriginalLine) {
@@ -691,6 +712,7 @@ export function updateCartDisplay() {
         if (cartTotalLineItemDiscountsLine) cartTotalLineItemDiscountsLine.style.display = 'none';
         if (cartOverallCartDiscountLine) cartOverallCartDiscountLine.style.display = 'none';
         if (cartGstFinalLine) cartGstFinalLine.style.display = 'none';
+        if (eftposFeeLine) eftposFeeLine.style.display = 'none';
 
         if (cartPaymentDetailsDiv) cartPaymentDetailsDiv.innerHTML = '';
         if (cartActionButtonsDiv) cartActionButtonsDiv.style.display = 'none';
@@ -819,4 +841,30 @@ async function handleApplyOverallDiscount() {
         console.error("Error applying overall discount:", error);
         showToast("Error applying overall discount: " + (error.message || "Unknown error"), "error");
     }
+}
+
+async function handleToggleEftposFee() {
+    if (!state.currentSale || !state.currentSale.id) {
+        showToast("No active sale to apply fee to.", "error");
+        return;
+    }
+    const isEnabled = !(state.currentSale.transaction_fee > 0);
+
+    try {
+        const updatedSale = await apiCall(`/sales/${state.currentSale.id}/eftpos_fee`, 'PUT', { enabled: isEnabled });
+        if (updatedSale && updatedSale.id) {
+            state.currentSale = updatedSale;
+            updateCartDisplay();
+            showToast(`EFTPOS Fee ${isEnabled ? 'Enabled' : 'Disabled'}.`, "success");
+        } else {
+            showToast(updatedSale.error || "Failed to toggle EFTPOS fee.", "error");
+        }
+    } catch (error) {
+        console.error("Error toggling EFTPOS fee:", error);
+        showToast("Error toggling EFTPOS fee: " + (error.message || "Unknown error"), "error");
+    }
+}
+
+export function isEftposFeeEnabled() {
+    return state.currentSale && state.currentSale.transaction_fee > 0;
 }

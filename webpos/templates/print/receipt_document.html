@@ -135,9 +135,15 @@
                     <td class="label">Net Subtotal:</td>
                     <td class="value">${{ "%.2f" | format(net_subtotal_final) }}</td>
                 </tr>
+                {% if document_title != 'Quotation' and eftpos_fee_amount and eftpos_fee_amount > 0 %}
+                <tr>
+                    <td class="label">EFTPOS Fee (inc GST):</td>
+                    <td class="value">${{ "%.2f" | format(eftpos_fee_amount) }}</td>
+                </tr>
+                {% endif %}
                 {% if gst_total > 0 %}
                 <tr>
-                    <td class="label">GST ({{ gst_rate_percentage }}%):</td>
+                    <td class="label">GST (included):</td>
                     <td class="value">${{ "%.2f" | format(gst_total) }}</td>
                 </tr>
                 {% endif %}
@@ -172,6 +178,13 @@
         <hr class="separator">
         <section class="notes-section">
             <p><strong>Sales Notes:</strong> {{ sale.sales_notes }}</p>
+        </section>
+        {% endif %}
+
+        {% if document_title == 'Quotation' %}
+        <hr class="separator">
+        <section class="notes-section">
+            <p><strong>Please note:</strong> Payments by EFTPOS incur a {{ eftpos_fee_percentage_for_disclaimer }}% transaction fee.</p>
         </section>
         {% endif %}
 
