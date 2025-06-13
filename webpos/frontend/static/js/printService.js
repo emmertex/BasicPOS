@@ -82,19 +82,18 @@ export function openPrintOptionsModal(saleId, saleStatus = 'Invoice', customerEm
 
     const hasEmail = customerEmail && customerEmail.trim() !== '';
 
-    if (saleStatus.toLowerCase() === 'quote') {
-        printQuoteA4Btn.style.display = 'inline-block';
-        printQuoteReceiptBtn.style.display = 'inline-block';
-        if (hasEmail) {
-            emailQuoteA4Btn.style.display = 'inline-block';
-        }
-    } else { // For Open, Paid, Invoice, etc.
-        printInvoiceA4Btn.style.display = 'inline-block';
-        printInvoiceReceiptBtn.style.display = 'inline-block';
-        if (hasEmail) {
-            emailInvoiceA4Btn.style.display = 'inline-block';
-        }
+    printQuoteA4Btn.style.display = 'inline-block';
+    printQuoteReceiptBtn.style.display = 'inline-block';
+    if (hasEmail) {
+        emailQuoteA4Btn.style.display = 'inline-block';
     }
+
+    printInvoiceA4Btn.style.display = 'inline-block';
+    printInvoiceReceiptBtn.style.display = 'inline-block';
+    if (hasEmail) {
+        emailInvoiceA4Btn.style.display = 'inline-block';
+    }
+    
 
     printOptionsModal.style.display = 'block';
 }

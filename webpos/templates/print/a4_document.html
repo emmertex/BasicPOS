@@ -52,7 +52,7 @@
                 <img src="{{ company_logo_url }}" alt="{{ company_name }}">
                 {% endif %}
                 <p><strong>{{ company_name }}</strong></p>
-                <p>{{ company_abn | default('', true) }}</p>`
+                <p>{{ company_abn | default('', true) }}</p>
                 <p>{{ company_address_line1 }}</p>
                 {% if company_address_line2 %}<p>{{ company_address_line2 }}</p>{% endif %}
                 <p>{{ company_city_state_postcode }}</p>
