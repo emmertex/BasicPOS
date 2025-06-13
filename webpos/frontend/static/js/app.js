@@ -190,6 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.currentSale = null;
             state.currentCustomer = null; 
             updateCartDisplay(); 
+            updateCartCustomerDisplay(null); // Explicitly clear customer display
             loadParkedSales();
         } else {
             showToast("No active sale to park.", "info");
