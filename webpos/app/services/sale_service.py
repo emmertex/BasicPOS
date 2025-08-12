@@ -68,6 +68,10 @@ class SaleService:
                     )
                 )
 
+        # By default, exclude Void sales unless status explicitly set to 'Void'
+        if not (filters and filters.get('status') == 'Void'):
+            query = query.filter(Sale.status != 'Void')
+
         return query.order_by(Sale.id.desc()).limit(50).all()
 
     @staticmethod
@@ -96,6 +100,27 @@ class SaleService:
                 # For now, log and proceed with status change.
                 db.session.rollback() # Rollback the status change if stock update fails critically
                 return None, f"Failed to void sale: stock adjustment error - {stock_error}"
+
+        try:
+            db.session.commit()
+            return sale, None
+        except Exception as e:
+            db.session.rollback()
+            return None, str(e)
+
+    @staticmethod
+    def park_sale(sale_id):
+        sale = Sale.query.get(sale_id)
+        if not sale:
+            return None, "Sale not found."
+        if sale.status in ['Paid', 'Void']:
+            return None, f"Cannot park a sale with status '{sale.status}'."
+
+        # If no items and no payments, mark as Void; otherwise set to Open (parked)
+        if not sale.sale_items or len(sale.sale_items) == 0:
+            sale.status = 'Void'
+        else:
+            sale.status = 'Open'
 
         try:
             db.session.commit()

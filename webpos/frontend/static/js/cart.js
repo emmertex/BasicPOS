@@ -513,7 +513,7 @@ export function updateCartDisplay() {
 
     if (state.currentSale && state.currentSale.id) {
         // Populate overall discount controls FIRST, as their state might depend on sale status
-        if (overallDiscountTypeSelect) overallDiscountTypeSelect.value = state.currentSale.overall_discount_type || 'none';
+        if (overallDiscountTypeSelect) overallDiscountTypeSelect.value = state.currentSale.overall_discount_type || 'percentage';
         if (overallDiscountValueInput) overallDiscountValueInput.value = state.currentSale.overall_discount_value !== null ? parseFloat(state.currentSale.overall_discount_value).toFixed(2) : '0.00';
         
         const canEditDiscount = state.currentSale.status !== 'Paid' && state.currentSale.status !== 'Void';
@@ -718,7 +718,7 @@ export function updateCartDisplay() {
         if (cartActionButtonsDiv) cartActionButtonsDiv.style.display = 'none';
         
         if (overallDiscountSectionDiv) overallDiscountSectionDiv.style.display = 'none';
-        if (overallDiscountTypeSelect) { overallDiscountTypeSelect.value = 'none'; overallDiscountTypeSelect.disabled = true; }
+        if (overallDiscountTypeSelect) { overallDiscountTypeSelect.value = 'percentage'; overallDiscountTypeSelect.disabled = true; }
         if (overallDiscountValueInput) { overallDiscountValueInput.value = '0.00'; overallDiscountValueInput.disabled = true; }
         if (applyOverallDiscountBtn) applyOverallDiscountBtn.disabled = true;
         

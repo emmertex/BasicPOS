@@ -179,16 +179,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function parkCurrentSale() {
         if (state.currentSale && state.currentSale.id) {
-            let saleToParkStatus = state.currentSale.status;
-            if (saleToParkStatus !== 'Open' && saleToParkStatus !== 'Quote' && saleToParkStatus !== 'Invoice') {
-                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
-            } else {
-                showToast(`Sale ${state.currentSale.id} (${state.currentSale.status}) parked.`, "info");
+            const saleId = state.currentSale.id;
+            try {
+                const updatedSale = await apiCall(`/sales/${saleId}/park`, 'PUT');
+                if (updatedSale && updatedSale.id) {
+                    showToast(`Sale ${updatedSale.id} ${updatedSale.status === 'Void' ? 'voided' : 'parked'}.`, 'info');
+                }
+            } catch (e) {
+                console.warn('Park sale request failed; proceeding to clear UI anyway.', e);
             }
+            // Clear UI regardless
             state.currentSale = null;
             state.currentCustomer = null; 
             updateCartDisplay(); 
-            updateCartCustomerDisplay(null); // Explicitly clear customer display
+            updateCartCustomerDisplay(null);
             loadParkedSales();
         } else {
             showToast("No active sale to park.", "info");
@@ -302,8 +306,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!parentSection || !content) return;
 
-        // Determine initial visibility. Make "Find Sales" visible by default.
-        const isCurrentlyVisible = true; // Start with all sections expanded
+        // Determine initial visibility. Collapse Admin by default, expand others.
+        const sectionTitleText = title.textContent ? title.textContent.trim() : '';
+        const isCurrentlyVisible = sectionTitleText !== 'Admin';
 
         // Apply classes to the SECTION (not the content) so flex behaviour works
         parentSection.classList.toggle('collapsed-section', !isCurrentlyVisible);

@@ -1,6 +1,7 @@
 import { apiCall } from './apiService.js'; // Might be needed if fetching print templates/settings
 import { showToast } from './toastService.js';
 import { state } from './uiState.js';
+import { updateCartDisplay } from './cart.js';
 
 // DOM Elements (cached in initPrintService)
 let printOptionsModal;
@@ -117,6 +118,11 @@ function handlePrintAction(docType, format) {
     
     showToast(`Opening ${docType} (${format}) for Sale ID ${saleId}...`, "info");
     window.open(url, '_blank');
+    // After initiating the print, close the modal and clear the cart for next sale
+    closePrintOptionsModal();
+    state.currentSale = null;
+    state.currentCustomer = null;
+    updateCartDisplay();
 }
 
 // New function to handle emailing A4 document

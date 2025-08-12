@@ -50,6 +50,14 @@ def get_sales_by_status_route(status_value):
         return jsonify({"error": "Failed to retrieve sales by status"}), 500
     return jsonify([sale_to_dict(s) for s in sales]), 200
 
+@bp.route('/<int:sale_id>/park', methods=['PUT'])
+def park_sale_route(sale_id):
+    sale, error = SaleService.park_sale(sale_id)
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        return jsonify({"error": error}), status_code
+    return jsonify(sale_to_dict(sale)), 200
+
 @bp.route('/<int:sale_id>/status', methods=['PUT'])
 def update_sale_status_route(sale_id):
     data = request.get_json()
@@ -170,7 +178,11 @@ def add_payment_to_sale_route(sale_id):
         return jsonify({"error": "Invalid input, amount and payment_type are required"}), 400
     
     payment, error = SaleService.add_payment_to_sale(sale_id, data)
-    return jsonify(sale_to_dict(sale)), 200 
+    if error:
+        status_code = 404 if "not found" in error.lower() else 400
+        return jsonify({"error": error}), status_code
+    updated_sale = SaleService.get_sale_by_id(sale_id)
+    return jsonify(sale_to_dict(updated_sale)), 200 
 
 @bp.route('/<int:sale_id>/eftpos_fee', methods=['PUT'])
 def toggle_eftpos_fee_route(sale_id):

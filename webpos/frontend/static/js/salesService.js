@@ -95,12 +95,17 @@ export async function searchAllSales() {
 
     const saleId = searchSaleIdInput.value.trim();
     const customerQuery = searchSaleCustomerInput.value.trim();
-    const status = searchSaleStatusSelect.value;
+    let status = searchSaleStatusSelect.value;
 
     const queryParams = {};
     if (saleId) queryParams.sale_id = saleId;
     if (customerQuery) queryParams.customer_query = customerQuery;
-    if (status) queryParams.status = status;
+    // Default to excluding 'Void' unless explicitly selected
+    if (status && status !== 'Void') {
+        queryParams.status = status;
+    } else if (!status) {
+        // No explicit status selected; let backend return non-Void by default (adjusted in service)
+    }
 
     try {
         const sales = await apiCall('/sales/', 'GET', null, queryParams);

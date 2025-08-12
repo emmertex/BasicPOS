@@ -606,20 +606,20 @@ button:not([class]) {
 #all-sales-search-section label {
     display: inline-block;
     width: 180px; /* Adjust as needed for alignment */
-    margin-bottom: 5px;
+    /* margin-bottom: 5px; */
 }
 
 #all-sales-search-section input[type="text"],
 #all-sales-search-section select {
-    margin-bottom: 10px;
-    width: calc(100% - 200px); /* Adjust based on label width */
+    /* margin-bottom: 10px; */
+    width: calc(100% - 20px); /* Adjust based on label width */
 }
 
 #all-sales-search-section button#search-sales-button { /* Specific selector for the search button */
     display: block; /* Make it take its own line */
-    width: 90%; /* Make it wide */
-    margin: 15px auto; /* Center it with auto horizontal margins */
-    padding: 12px;
+    width: 200px; /* Make it wide */
+    /*  margin: 15px auto; Center it with auto horizontal margins */
+    /* padding: 12px; */
     /* background-color: #007bff; Already handled by .btn .btn-primary if applied */
     /* color: white; */
     text-align: center;
@@ -653,12 +653,11 @@ button:not([class]) {
 }
 
 /* Comment out specific styles as these buttons now use .btn and modifiers */
-/*
+
 .sale-search-result-item button.view-sale-details-btn {
-    padding: 5px 10px;
-    font-size: 0.9em;
+    margin-left: 10px;
+    margin-right: 10px;
 }
-*/
 
 /* Variant Selection Modal Styles */
 #variant-list-container {

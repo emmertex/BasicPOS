@@ -114,26 +114,29 @@
             <section id="all-sales-search-section" class="left-panel-section">
                 <h2 class="left-panel-section-title">Find Sales</h2>
                 <div class="left-panel-section-content">
-                    <div>
-                        <label for="search-sale-id">Sale ID:</label>
-                        <input type="text" id="search-sale-id" placeholder="Enter Sale ID">
+                    <div style="display:flex; align-items:flex-end;">
+                        <div style="flex:1;">
+                            <input type="text" id="search-sale-id" placeholder="Sale ID">
+                        </div>
+                        <div style="flex:1;">
+                            <input type="text" id="search-sale-customer" placeholder="Name or Phone">
+                        </div>
                     </div>
-                    <div>
-                        <label for="search-sale-customer">Customer (Name/Phone):</label>
-                        <input type="text" id="search-sale-customer" placeholder="Enter Customer Name or Phone">
+                    <div style="display:flex; align-items:center; ">
+                        <div style="flex:1;">
+                            <select id="search-sale-status">
+                                <option value="">All Statuses</option>
+                                <option value="Open">Open</option>
+                                <option value="Quote">Quote</option>
+                                <option value="Invoice">Invoice</option>
+                                <option value="Paid">Paid</option>
+                                <option value="Void">Void</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button id="search-sales-button" class="btn btn-primary">Search Sales</button>
+                        </div>
                     </div>
-                    <div>
-                        <label for="search-sale-status">Status:</label>
-                        <select id="search-sale-status">
-                            <option value="">All Statuses</option>
-                            <option value="Open">Open</option>
-                            <option value="Quote">Quote</option>
-                            <option value="Invoice">Invoice</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Void">Void</option>
-                        </select>
-                    </div>
-                    <button id="search-sales-button" class="btn btn-primary">Search Sales</button>
                     <div id="all-sales-search-results">
                         <!-- Sales search results will be populated here -->
                     </div>
@@ -194,12 +197,12 @@
                     <div id="overall-discount-section" style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <label for="overall-discount-type" style="margin-right: 5px;">Overall Discount:</label>
                         <select id="overall-discount-type" style="padding: 5px; flex-grow: 1;">
-                            <option value="none" selected>None</option>
-                            <option value="percentage">%</option>
+                            <option value="none">None</option>
+                            <option value="percentage" selected>%</option>
                             <option value="fixed">Fixed Amount ($)</option>
                             <option value="target_total">Set Sale Total ($)</option>
                         </select>
-                        <input type="number" id="overall-discount-value" placeholder="Value" step="0.01" style="padding: 5px; width: 70px; flex-grow: 1;">
+                        <input type="number" id="overall-discount-value" placeholder="Value" step="0.01" value="0" style="padding: 5px; width: 70px; flex-grow: 1;">
                         <button id="apply-overall-discount-btn" style="padding: 5px 10px; flex-grow: 0;">Apply</button>
                     </div>
 
