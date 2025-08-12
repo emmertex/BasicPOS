@@ -31,8 +31,10 @@ let itemShowOnWebsiteCheckbox;
 let itemIsActiveCheckbox;
 let itemImagesUploadInput;
 let itemImagesListDiv;
-let manageVariantsButton;
 let itemImageDropZone;
+let addVariationButton;
+let variationsContainer;
+let variationsList;
 
 // Variant Selection Modal
 let variantSelectionModal;
@@ -79,8 +81,10 @@ export function initItemService() {
     itemIsActiveCheckbox = document.getElementById('item-is-active');
     itemImagesUploadInput = document.getElementById('item-images-upload');
     itemImagesListDiv = document.getElementById('item-images-list');
-    manageVariantsButton = document.getElementById('manage-variants-button');
     itemImageDropZone = document.getElementById('item-image-drop-zone');
+    addVariationButton = document.getElementById('add-variation-button');
+    variationsContainer = document.getElementById('item-variations-container');
+    variationsList = document.getElementById('item-variations-list');
 
     // Add/Edit Item Modal Buttons
     submitItemButton = document.getElementById('submit-item-button');
@@ -107,10 +111,6 @@ export function initItemService() {
         closeAddEditItemModalButton.addEventListener('click', closeAddEditItemModal);
     } else { console.warn("close-add-edit-item-modal button not found during itemService init"); }
 
-    if (manageVariantsButton) {
-        manageVariantsButton.addEventListener('click', handleManageVariantsClick);
-    } else { console.warn("manage-variants-button not found during itemService init"); }
-
     if (closeVariantSelectionModalButton) {
         closeVariantSelectionModalButton.addEventListener('click', closeVariantSelectionModal);
     } else { console.warn("close-variant-selection-modal button not found during itemService init"); }
@@ -118,6 +118,35 @@ export function initItemService() {
     if (closeImagePreviewModalButton) {
         closeImagePreviewModalButton.addEventListener('click', closeImagePreviewModal);
     } else { console.warn("closeImagePreviewModal button not found during itemService init"); }
+
+    // Attach Save button handlers when running on the desktop stock management page (/stockdt/)
+    // to ensure the Save buttons work without relying on app.js (which is not loaded on that page).
+    const isDesktopStockPage = typeof window !== 'undefined' && window.location && window.location.pathname.includes('/stockdt');
+    if (isDesktopStockPage) {
+        if (submitItemButton) {
+            // Avoid accidental double-binding by removing any anonymous handlers is not feasible;
+            // however, this code only runs on /stockdt where app.js is not included.
+            submitItemButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                if (submitItemButton.disabled) return;
+                submitItemButton.disabled = true;
+                await handleSaveItem(false);
+                submitItemButton.disabled = false;
+            });
+        } else {
+            console.warn('submit-item-button not found during itemService init on /stockdt');
+        }
+
+        if (submitItemAndAddToCartButton) {
+            submitItemAndAddToCartButton.addEventListener('click', async (event) => {
+                event.preventDefault();
+                if (submitItemAndAddToCartButton.disabled) return;
+                submitItemAndAddToCartButton.disabled = true;
+                await handleSaveItem(true);
+                submitItemAndAddToCartButton.disabled = false;
+            });
+        }
+    }
 
     // Delegated listener for deleting images within item modal
     if (itemImagesListDiv) {
@@ -465,10 +494,12 @@ export function clearItemModalForm() {
     itemIsActiveCheckbox.checked = true;
     if (itemImagesUploadInput) itemImagesUploadInput.value = null;
     if (itemImagesListDiv) itemImagesListDiv.innerHTML = '';
-    if (manageVariantsButton) {
-        manageVariantsButton.style.display = 'none';
-        manageVariantsButton.onclick = null; 
-        manageVariantsButton.removeAttribute('data-parent-item-id'); // Clear data attribute
+    
+    if (variationsContainer) {
+        variationsContainer.style.display = 'none';
+    }
+    if (variationsList) {
+        variationsList.innerHTML = '';
     }
 }
 
@@ -481,8 +512,6 @@ export function openAddItemForm() {
     clearItemModalForm();
     itemModalTitle.textContent = 'Add New Item';
     addEditItemModal.style.display = 'block';
-    // Ensure manage variants button is correctly hidden for brand new items
-    if (manageVariantsButton) manageVariantsButton.style.display = 'none';
 }
 
 export async function openEditItemForm(itemId) {
@@ -496,6 +525,9 @@ export async function openEditItemForm(itemId) {
     editItemIdInput.value = itemId;
 
     const itemData = await apiCall(`/items/${itemId}`);
+
+    console.log('Editing Item - Data Received:', itemData); // Diagnostic log
+
     if (itemData) {
         itemTitleInput.value = itemData.title;
         itemSkuInput.value = itemData.sku;
@@ -547,15 +579,11 @@ export async function openEditItemForm(itemId) {
             }
         }
 
-        if (manageVariantsButton) {
-            if (itemData.parent_id === -2) { // Is a parent item
-                manageVariantsButton.style.display = 'block';
-                manageVariantsButton.dataset.parentItemId = itemData.id; // Store parent item ID for variant creation
-                // The onclick for manageVariantsButton will be set up in app.js or here
-            } else {
-                manageVariantsButton.style.display = 'none';
-            }
+        if (itemData.parent_id === -2) { // Is a parent item
+            console.log('Parent item detected. Loading variants...'); // Diagnostic log
+            loadAndDisplayVariants(itemData.id);
         }
+        
         addEditItemModal.style.display = 'flex'; // Use flex if modal content uses it
     } else {
         showToast("Failed to load item details for editing.", 'error');
@@ -565,7 +593,6 @@ export async function openEditItemForm(itemId) {
 export function closeAddEditItemModal() {
     if (addEditItemModal) {
         addEditItemModal.style.display = 'none';
-        if (manageVariantsButton) manageVariantsButton.style.display = 'none';
     }
 }
 
@@ -701,29 +728,6 @@ export function openVariantManagementInterface(parentItem) {
     // and pre-fill parent_id.
 }
 
-// Logic for the manage variants button (to be called by an event listener)
-// This function now directly uses openAddItemForm from this module.
-export function handleManageVariantsClick() {
-    if (!manageVariantsButton || !itemSkuInput || !itemTitleInput || !itemParentIdInput || !itemModalTitle) return;
-
-    const parentItemId = manageVariantsButton.dataset.parentItemId;
-    const parentItemSku = itemSkuInput.value; 
-    const parentItemTitle = itemTitleInput.value; 
-
-    if (parentItemId) {
-        closeAddEditItemModal(); 
-        openAddItemForm(); 
-        
-        itemParentIdInput.value = parentItemId;
-        itemModalTitle.textContent = `Add Variant for: ${parentItemTitle} (SKU: ${parentItemSku})`;
-        itemSkuInput.value = ''; 
-        itemTitleInput.value = parentItemTitle + ' - '; 
-        if (itemPriceInput) itemPriceInput.focus(); 
-    } else {
-        showToast("Error: Parent item ID not found for managing variants. Ensure you are editing a parent item.", 'error');
-    }
-}
-
 export function setupItemImageDropZone() {
     if (itemImageDropZone && itemImagesUploadInput) {
         itemImageDropZone.addEventListener('click', () => itemImagesUploadInput.click());
@@ -778,6 +782,94 @@ export async function handleItemClick(itemId, itemTitle, itemPrice, itemSku, par
             console.error('handleItemClick called for non-parent item without price:', { itemId, itemTitle, itemPrice, itemSku, parentId });
         }
     }
+}
+
+async function loadAndDisplayVariants(parentId) {
+    console.log('Entering loadAndDisplayVariants. Container:', variationsContainer);
+    if (!variationsContainer || !variationsList || !addVariationButton) {
+        console.error('Variation UI elements not found');
+        return;
+    }
+
+    variationsList.innerHTML = '<p>Loading variants...</p>';
+
+    addVariationButton.onclick = () => {
+        const parentItemSku = document.getElementById('item-sku').value;
+        const parentItemTitle = document.getElementById('item-title').value;
+
+        closeAddEditItemModal();
+        openAddItemForm();
+
+        // Re-acquire the input elements after the modal is cleared and reopened.
+        const itemParentIdInput = document.getElementById('item-parent-id');
+        const itemModalTitle = document.getElementById('item-modal-title');
+        const itemSkuInput = document.getElementById('item-sku');
+        const itemTitleInput = document.getElementById('item-title');
+        const itemPriceInput = document.getElementById('item-price');
+
+        // Generate a short random string for the SKU
+        const randomString = Math.random().toString(36).substring(2, 6);
+
+        itemParentIdInput.value = parentId;
+        itemModalTitle.textContent = `Add Variant for: ${parentItemTitle}`;
+        itemTitleInput.value = parentItemTitle;
+        itemSkuInput.value = `${parentItemSku}_${randomString}`;
+        if (itemPriceInput) itemPriceInput.focus();
+    };
+
+    try {
+        const variants = await apiCall(`/items/${parentId}/variants`);
+        console.log('Variants data received:', variants);
+        renderVariants(variants);
+    } catch (error) {
+        console.error('Error loading variants:', error);
+        variationsList.innerHTML = '<p>Error loading variants.</p>';
+        if (variationsContainer) variationsContainer.style.display = 'block';
+    }
+}
+
+function renderVariants(variants) {
+    if (!variationsList || !variationsContainer) return;
+
+    variationsList.innerHTML = '';
+
+    if (!variants || variants.length === 0) {
+        variationsList.innerHTML = '<p>No variants found for this item.</p>';
+        variationsContainer.style.display = 'block';
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'item-table'; // Reuse existing table style
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>SKU</th>
+                <th>Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+    `;
+    const tbody = document.createElement('tbody');
+    variants.forEach(variant => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${variant.title}</td>
+            <td>${variant.sku}</td>
+            <td>${variant.price ? variant.price.toFixed(2) : 'N/A'}</td>
+            <td><button class="btn btn-secondary btn-sm">Edit</button></td>
+        `;
+        tr.querySelector('button').onclick = () => {
+            closeAddEditItemModal();
+            openEditItemForm(variant.id);
+        };
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    variationsList.appendChild(table);
+    variationsContainer.style.display = 'block';
+    console.log('Set variationsContainer display to block because variants were found.');
 }
 
 // --- Exports ---

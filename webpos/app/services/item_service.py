@@ -312,7 +312,14 @@ class ItemService:
 
         if create_new_version:
             try:
-                # Create a new version
+                # Capture original attributes BEFORE deactivating the existing record
+                original_attrs = {
+                    f.name: getattr(item_to_update, f.name)
+                    for f in item_to_update.__table__.columns
+                    if f.name != 'id'
+                }
+
+                # Create a new version by first marking the existing item as historical
                 item_to_update.is_current_version = False
                 # Deactivate and clear other attributes so the historical record does not
                 # appear anywhere it shouldn't.
@@ -324,20 +331,23 @@ class ItemService:
 
                 db.session.add(item_to_update)  # mark for update
 
-                new_version_data = { 
-                    f.name: getattr(item_to_update, f.name) 
-                    for f in item_to_update.__table__.columns 
-                    if f.name != 'id'
-                }
+                # Start new version from the ORIGINAL values, not the deactivated ones
+                new_version_data = dict(original_attrs)
+                
+                # Apply versionable changes (e.g., title, price)
                 for key, value in versionable_changes.items():
-                    if key != 'id': 
-                       new_version_data[key] = value
+                    if key != 'id':
+                        new_version_data[key] = value
+                
+                # Apply any provided non-versionable updates from the request data
+                for key, value in data.items():
+                    if key != 'id':
+                        new_version_data[key] = value
                 
                 new_version_data['is_current_version'] = True
-                # Ensure parent_id from the original item is carried over if not in data
-                if 'parent_id' not in new_version_data:
-                    new_version_data['parent_id'] = item_to_update.parent_id
-
+                # Ensure parent_id from the original item is carried over if not explicitly overridden
+                if 'parent_id' not in new_version_data or new_version_data['parent_id'] is None:
+                    new_version_data['parent_id'] = original_attrs.get('parent_id')
 
                 new_item_version = Item(**new_version_data)
 

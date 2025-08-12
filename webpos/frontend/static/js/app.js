@@ -47,7 +47,6 @@ import {
     handleSaveItem as serviceHandleSaveItem,
     handleDeleteImage as serviceHandleDeleteImage,
     displaySelectedFileNames as serviceDisplaySelectedFileNames,
-    handleManageVariantsClick as serviceHandleManageVariantsClick,
     handleItemClick as serviceHandleItemClick
 } from './itemService.js';
 import { initCombinationItemService } from './combinationItemService.js';
@@ -110,7 +109,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeAddEditItemModalButton = document.getElementById('close-add-edit-item-modal');
     const submitItemButton = document.getElementById('submit-item-button');
     const submitItemAndAddToCartButton = document.getElementById('submit-item-and-add-to-cart-button');
-    const manageVariantsButton = document.getElementById('manage-variants-button');
     const itemImagesListDiv = document.getElementById('item-images-list'); // For delegated delete image listener
     const itemImagesUploadInput = document.getElementById('item-images-upload'); // For change listener (now handled by itemService.setupItemImageDropZone)
     const closeVariantSelectionModalButton = document.getElementById('close-variant-selection-modal');
@@ -374,14 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
         submitItemAndAddToCartButton.removeEventListener('click', handleSubmitItemAndAddToCartButtonClick);
         submitItemAndAddToCartButton.addEventListener('click', handleSubmitItemAndAddToCartButtonClick);
     }
-    if (manageVariantsButton) manageVariantsButton.addEventListener('click', serviceHandleManageVariantsClick);
-    // itemImagesUploadInput 'change' listener is now part of serviceSetupItemImageDropZone
-    if (closeVariantSelectionModalButton) closeVariantSelectionModalButton.addEventListener('click', serviceCloseVariantSelectionModal);
-    if (closeImagePreviewModalButton) closeImagePreviewModalButton.addEventListener('click', serviceCloseImagePreviewModal);
-
-    // Cart Item Actions (Delegated)
-    if (cartItemsDiv) {
-        cartItemsDiv.addEventListener('change', async (event) => {
+    if (itemImagesListDiv) {
+        itemImagesListDiv.addEventListener('change', async (event) => {
             if (event.target.classList.contains('cart-item-quantity-input')) {
                 const saleItemId = event.target.dataset.saleItemId;
                 const newQuantity = parseInt(event.target.value, 10);
@@ -397,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        cartItemsDiv.addEventListener('click', (event) => {
+        itemImagesListDiv.addEventListener('click', (event) => {
             const editButton = event.target.closest('.edit-cart-item-btn');
             if (editButton) {
                 const saleItemId = editButton.dataset.saleItemId;
@@ -468,4 +460,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // REMOVE: if (closePrintOptionsModalButton) closePrintOptionsModalButton.addEventListener('click', closePrintOptionsModal);
     // REMOVE: The handlePrintAction function and its associated button listeners
     
+    // itemImagesUploadInput 'change' listener is now part of serviceSetupItemImageDropZone
+    if (closeVariantSelectionModalButton) closeVariantSelectionModalButton.addEventListener('click', serviceCloseVariantSelectionModal);
+    if (closeImagePreviewModalButton) closeImagePreviewModalButton.addEventListener('click', serviceCloseImagePreviewModal);
+
+    // Cart Item Actions (Delegated)
+    if (cartItemsDiv) {
+        cartItemsDiv.addEventListener('change', async (event) => {
+            if (event.target.classList.contains('cart-item-quantity-input')) {
+                const saleItemId = event.target.dataset.saleItemId;
+                const newQuantity = parseInt(event.target.value, 10);
+                if (saleItemId && !isNaN(newQuantity)) {
+                    // The cart.js function handleUpdateCartItemQuantity will do further validation (e.g. min quantity)
+                    await handleUpdateCartItemQuantity(saleItemId, newQuantity); 
+                } else if (isNaN(newQuantity)) {
+                    showToast('Invalid quantity entered.', 'error');
+                    // Optionally, revert to old value if stored or re-fetch cart
+                    const itemInCart = state.currentSale.sale_items.find(si => si.id == saleItemId);
+                    if(itemInCart) event.target.value = itemInCart.quantity;
+                }
+            }
+        });
+
+        cartItemsDiv.addEventListener('click', (event) => {
+            const editButton = event.target.closest('.edit-cart-item-btn');
+            if (editButton) {
+                const saleItemId = editButton.dataset.saleItemId;
+                const itemName = editButton.dataset.itemName;
+                const priceAtSale = editButton.dataset.priceAtSale;
+                const currentNotes = editButton.dataset.currentNotes;
+                
+                // Find the actual sale item from state to get all details, especially current sale_price
+                const saleItem = state.currentSale?.sale_items.find(si => si.id == saleItemId);
+                if (saleItem) {
+                    openEditSaleItemModal(saleItem);
+                } else {
+                    showToast('Could not find sale item details to edit.', 'error');
+                }
+                return; // Prevent further actions if edit button was clicked
+            }
+
+            const removeButton = event.target.closest('.remove-from-cart-btn');
+            if (removeButton) {
+                const saleItemId = removeButton.dataset.saleItemId;
+                if (saleItemId) {
+                    // Optional: Add a confirmation dialog here
+                    // if (confirm('Are you sure you want to remove this item from the cart?')) {
+                    handleRemoveItemFromCart(saleItemId);
+                    // }
+                }
+                return; // Prevent further actions if remove button was clicked
+            }
+        });
+    }
 }); 
